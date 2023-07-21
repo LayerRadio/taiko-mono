@@ -4,111 +4,148 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
-
-import {BlockHeader} from "../libs/LibBlockHeader.sol";
+pragma solidity ^0.8.20;
 
 library TaikoData {
     struct Config {
         uint256 chainId;
-        // up to 2048 pending blocks
-        uint256 maxNumBlocks;
-        uint256 blockHashHistory;
-        // This number is calculated from maxNumBlocks to make
+        uint256 maxNumProposedBlocks;
+        uint256 ringBufferSize;
+        // This number is calculated from maxNumProposedBlocks to make
         // the 'the maximum value of the multiplier' close to 20.0
         uint256 maxVerificationsPerTx;
-        uint256 commitConfirmations;
-        uint256 blockMaxGasLimit;
-        uint256 maxTransactionsPerBlock;
-        uint256 maxBytesPerTxList;
-        uint256 minTxGasLimit;
-        uint256 anchorTxGasLimit;
-        uint256 slotSmoothingFactor;
-        uint256 rewardBurnBips;
-        uint256 proposerDepositPctg;
-        // Moving average factors
-        uint256 feeBaseMAF;
-        uint256 blockTimeMAF;
-        uint256 proofTimeMAF;
-        uint64 rewardMultiplierPctg;
-        uint64 feeGracePeriodPctg;
-        uint64 feeMaxPeriodPctg;
-        uint64 blockTimeCap;
-        uint64 proofTimeCap;
-        uint64 bootstrapDiscountHalvingPeriod;
-        bool enableTokenomics;
-        bool enablePublicInputsCheck;
-        bool enableAnchorValidation;
+        uint64 blockMaxGasLimit;
+        uint64 maxTransactionsPerBlock;
+        uint64 maxBytesPerTxList;
+        uint256 txListCacheExpiry;
+        uint256 proofCooldownPeriod;
+        uint256 systemProofCooldownPeriod;
+        uint256 realProofSkipSize;
+        uint256 ethDepositGas;
+        uint256 ethDepositMaxFee;
+        uint256 ethDepositRingBufferSize;
+        uint64 ethDepositMinCountPerBlock;
+        uint64 ethDepositMaxCountPerBlock;
+        uint96 ethDepositMaxAmount;
+        uint96 ethDepositMinAmount;
+        bool relaySignalRoot;
     }
 
-    struct BlockMetadata {
-        uint256 id;
-        uint256 l1Height;
-        bytes32 l1Hash;
-        address beneficiary;
-        bytes32 txListHash;
-        bytes32 mixHash;
-        bytes extraData;
-        uint64 gasLimit;
-        uint64 timestamp;
-        uint64 commitHeight;
-        uint64 commitSlot;
-    }
-
-    struct Evidence {
-        TaikoData.BlockMetadata meta;
-        BlockHeader header;
-        address prover;
-        bytes[] proofs;
-        uint16 circuitId;
+    struct StateVariables {
+        uint64 blockFee;
+        uint64 genesisHeight;
+        uint64 genesisTimestamp;
+        uint64 numBlocks;
+        uint64 lastVerifiedBlockId;
+        uint64 nextEthDepositToProcess;
+        uint64 numEthDeposits;
     }
 
     // 3 slots
-    struct ProposedBlock {
-        bytes32 metaHash;
-        uint256 deposit;
-        address proposer;
-        uint64 proposedAt;
+    struct BlockMetadataInput {
+        bytes32 txListHash;
+        address beneficiary;
+        uint32 gasLimit;
+        uint24 txListByteStart; // byte-wise start index (inclusive)
+        uint24 txListByteEnd; // byte-wise end index (exclusive)
+        uint8 cacheTxListInfo; // non-zero = True
     }
 
-    // 3 + n slots
-    struct ForkChoice {
+    // Changing this struct requires changing LibUtils.hashMetadata accordingly.
+    struct BlockMetadata {
+        uint64 id;
+        uint64 timestamp;
+        uint64 l1Height;
+        bytes32 l1Hash;
+        bytes32 mixHash;
+        bytes32 txListHash;
+        uint24 txListByteStart;
+        uint24 txListByteEnd;
+        uint32 gasLimit;
+        address beneficiary;
+        address treasury;
+        TaikoData.EthDeposit[] depositsProcessed;
+    }
+
+    struct BlockEvidence {
+        bytes32 metaHash;
+        bytes32 parentHash;
         bytes32 blockHash;
+        bytes32 signalRoot;
+        bytes32 graffiti;
         address prover;
+        uint32 parentGasUsed;
+        uint32 gasUsed;
+        uint16 verifierId;
+        bytes proof;
+    }
+
+    // 4 slots
+    struct ForkChoice {
+        // Key is only written/read for the 1st fork choice.
+        bytes32 key;
+        bytes32 blockHash;
+        bytes32 signalRoot;
         uint64 provenAt;
+        address prover;
+        uint32 gasUsed;
+    }
+
+    // 4 slots
+    struct Block {
+        // ForkChoice storage are reusable
+        mapping(uint256 forkChoiceId => ForkChoice) forkChoices;
+        uint64 blockId;
+        uint64 proposedAt;
+        uint24 nextForkChoiceId;
+        uint24 verifiedForkChoiceId;
+        bytes32 metaHash;
+        address proposer;
     }
 
     // This struct takes 9 slots.
+    struct TxListInfo {
+        uint64 validSince;
+        uint24 size;
+    }
+
+    struct EthDeposit {
+        address recipient;
+        uint96 amount;
+        uint64 id;
+    }
+
     struct State {
-        // some blocks' hashes won't be persisted,
-        // only the latest one if verified in a batch
-        mapping(uint256 blockId => bytes32 blockHash) l2Hashes;
-        mapping(uint256 blockId => ProposedBlock proposedBlock) proposedBlocks;
-        // solhint-disable-next-line max-line-length
-        mapping(uint256 blockId => mapping(bytes32 parentHash => ForkChoice forkChoice)) forkChoices;
-        // solhint-disable-next-line max-line-length
-        mapping(address proposerAddress => mapping(uint256 commitSlot => bytes32 commitHash)) commits;
-        // solhint-disable-next-line max-line-length
-        mapping(address prover => uint256 outstandingReward) balances;
+        // Ring buffer for proposed blocks and a some recent verified blocks.
+        mapping(uint256 blockId_mode_ringBufferSize => Block) blocks;
+        mapping(
+            uint256 blockId
+                => mapping(
+                    bytes32 parentHash
+                        => mapping(uint32 parentGasUsed => uint256 forkChoiceId)
+                )
+            ) forkChoiceIds;
+        mapping(address account => uint256 balance) taikoTokenBalances;
+        mapping(bytes32 txListHash => TxListInfo) txListInfo;
+        mapping(uint256 depositId_mod_ethDepositRingBufferSize => uint256)
+            ethDeposits;
         // Never or rarely changed
+        // Slot 7: never or rarely changed
         uint64 genesisHeight;
         uint64 genesisTimestamp;
-        uint64 __reservedA1;
-        uint64 __reservedA2;
-        // Changed when a block is proposed or proven/finalized
-        uint256 feeBase;
-        // Changed when a block is proposed
-        uint64 nextBlockId;
-        uint64 lastProposedAt; // Timestamp when the last block is proposed.
-        uint64 avgBlockTime; // The block time moving average
-        uint64 __avgGasLimit; // the block gaslimit moving average, not updated.
-        // Changed when a block is proven/finalized
-        uint64 latestVerifiedHeight;
-        uint64 latestVerifiedId;
-        // the proof time moving average, note that for each block, only the
-        // first proof's time is considered.
-        uint64 avgProofTime;
-        uint64 __reservedC1;
+        uint16 __reserved70;
+        uint48 __reserved71;
+        uint64 __reserved72;
+        // Slot 8
+        uint64 __reserved80;
+        uint64 numEthDeposits;
+        uint64 numBlocks;
+        uint64 nextEthDepositToProcess;
+        // Slot 9
+        uint64 blockFee;
+        uint64 __reserved90;
+        uint64 lastVerifiedBlockId;
+        uint64 __reserved91;
         // Reserved
         uint256[42] __gap;
     }

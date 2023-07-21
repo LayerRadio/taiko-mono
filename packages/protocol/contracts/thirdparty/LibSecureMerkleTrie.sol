@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: MIT
-// Taken from https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/trie/LibSecureMerkleTrie.sol
+// Taken from
+// https://github.com/ethereum-optimism/optimism/blob/develop/packages/contracts/contracts/libraries/trie/LibSecureMerkleTrie.sol
 // (The MIT License)
 //
 // Copyright 2020-2021 Optimism
@@ -24,18 +25,18 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 /* Library Imports */
-import {LibMerkleTrie} from "./LibMerkleTrie.sol";
+import { LibMerkleTrie } from "./LibMerkleTrie.sol";
 
 /**
  * @title LibSecureMerkleTrie
  */
 library LibSecureMerkleTrie {
-    /**********************
-     * Internal Functions *
-     **********************/
+    /*//////////////////////////////////////////////////////////////
+                           INTERNAL FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * @notice Verifies a proof that a given key/value pair is present in the
@@ -47,14 +48,19 @@ library LibSecureMerkleTrie {
      * of a list of RLP-encoded nodes that make a path down to the target node.
      * @param _root Known root of the Merkle trie. Used to verify that the
      * included proof is correctly constructed.
-     * @return _verified `true` if the k/v pair exists in the trie, `false` otherwise.
+     * @return _verified `true` if the k/v pair exists in the trie, `false`
+     * otherwise.
      */
     function verifyInclusionProof(
         bytes memory _key,
         bytes memory _value,
         bytes memory _proof,
         bytes32 _root
-    ) internal pure returns (bool _verified) {
+    )
+        internal
+        pure
+        returns (bool _verified)
+    {
         bytes memory key = _getSecureKey(_key);
         return LibMerkleTrie.verifyInclusionProof(key, _value, _proof, _root);
     }
@@ -71,23 +77,29 @@ library LibSecureMerkleTrie {
         bytes memory _key,
         bytes memory _proof,
         bytes32 _root
-    ) internal pure returns (bool _exists, bytes memory _value) {
+    )
+        internal
+        pure
+        returns (bool _exists, bytes memory _value)
+    {
         bytes memory key = _getSecureKey(_key);
         return LibMerkleTrie.get(key, _proof, _root);
     }
 
-    /*********************
-     * Private Functions *
-     *********************/
+    /*//////////////////////////////////////////////////////////////
+                           PRIVATE FUNCTIONS
+    //////////////////////////////////////////////////////////////*/
 
     /**
      * Computes the secure counterpart to a key.
      * @param _key Key to get a secure key from.
      * @return _secureKey Secure version of the key.
      */
-    function _getSecureKey(
-        bytes memory _key
-    ) private pure returns (bytes memory _secureKey) {
-        return abi.encodePacked(keccak256(_key));
+    function _getSecureKey(bytes memory _key)
+        private
+        pure
+        returns (bytes memory _secureKey)
+    {
+        return bytes.concat(keccak256(_key));
     }
 }

@@ -22,7 +22,7 @@
     provider: ethers.providers.JsonRpcProvider,
     contractAddress: string,
     onEvent: (value: Status) => void
-  ) => void;
+  ) => () => void;
 
   export let colorFunc: (value: Status) => string;
 
@@ -40,6 +40,10 @@
 
   let tooltipOpen: boolean = false;
 
+  let detailsOpen: boolean = false;
+
+  let cancelFunc: () => void = () => {};
+
   onMount(async () => {
     try {
       if (status) {
@@ -54,9 +58,16 @@
     }
 
     if (watchStatusFunc) {
-      watchStatusFunc(provider, contractAddress, (value: Status) => {
-        statusValue = value;
-      });
+      if (!statusFunc) {
+        statusValue = "Waiting for event...";
+      }
+      cancelFunc = watchStatusFunc(
+        provider,
+        contractAddress,
+        (value: Status) => {
+          statusValue = value;
+        }
+      );
     }
 
     if (intervalInMs !== 0) {
@@ -64,7 +75,7 @@
         try {
           statusValue = await statusFunc(provider, contractAddress);
         } catch (e) {
-          console.error(e);
+          console.error(header, e);
         }
       }, intervalInMs);
     }
@@ -72,6 +83,7 @@
 
   onDestroy(() => {
     if (interval) clearInterval(interval);
+    if (cancelFunc) cancelFunc();
   });
 </script>
 

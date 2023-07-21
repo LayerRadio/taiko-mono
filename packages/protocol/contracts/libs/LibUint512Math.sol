@@ -23,7 +23,7 @@
 // TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
 // SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 library LibUint512Math {
     /**
@@ -33,7 +33,11 @@ library LibUint512Math {
     function mul(
         uint256 a,
         uint256 b
-    ) internal pure returns (uint256 r0, uint256 r1) {
+    )
+        internal
+        pure
+        returns (uint256 r0, uint256 r1)
+    {
         assembly {
             let mm := mulmod(a, b, not(0))
             r0 := mul(a, b)
@@ -50,7 +54,11 @@ library LibUint512Math {
         uint256 a1,
         uint256 b0,
         uint256 b1
-    ) internal pure returns (uint256 r0, uint256 r1) {
+    )
+        internal
+        pure
+        returns (uint256 r0, uint256 r1)
+    {
         assembly {
             r0 := add(a0, b0)
             r1 := add(add(a1, b1), lt(r0, a0))

@@ -4,212 +4,171 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { AddressResolver } from "../../common/AddressResolver.sol";
+import { ISignalService } from "../../signal/ISignalService.sol";
+import { LibUtils } from "./LibUtils.sol";
+import { SafeCastUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { TaikoData } from "../../L1/TaikoData.sol";
 
-import {AddressResolver} from "../../common/AddressResolver.sol";
-import {TaikoToken} from "../TaikoToken.sol";
-import {LibUtils} from "./LibUtils.sol";
-import {TaikoData} from "../../L1/TaikoData.sol";
-
-/**
- * LibVerifying.
- */
 library LibVerifying {
     using SafeCastUpgradeable for uint256;
     using LibUtils for TaikoData.State;
 
-    event BlockVerified(uint256 indexed id, bytes32 blockHash);
-    event HeaderSynced(uint256 indexed srcHeight, bytes32 srcHash);
+    event BlockVerified(uint256 indexed id, bytes32 blockHash, uint64 reward);
 
-    error L1_0_FEE_BASE();
+    event CrossChainSynced(
+        uint256 indexed srcHeight, bytes32 blockHash, bytes32 signalRoot
+    );
+
+    error L1_INVALID_CONFIG();
 
     function init(
         TaikoData.State storage state,
+        TaikoData.Config memory config,
         bytes32 genesisBlockHash,
-        uint256 feeBase
-    ) public {
-        if (feeBase == 0) revert L1_0_FEE_BASE();
+        uint64 initBlockFee
+    )
+        internal
+    {
+        if (
+            config.chainId <= 1 //
+                || config.maxNumProposedBlocks == 1
+                || config.ringBufferSize <= config.maxNumProposedBlocks + 1
+                || config.blockMaxGasLimit == 0
+                || config.maxTransactionsPerBlock == 0
+                || config.maxBytesPerTxList == 0
+                || config.txListCacheExpiry > 30 * 24 hours
+            // EIP-4844 blob size up to 128K
+            || config.maxBytesPerTxList > 128 * 1024
+                || config.ethDepositMinCountPerBlock == 0
+                || config.ethDepositMaxCountPerBlock
+                    < config.ethDepositMinCountPerBlock || config.ethDepositGas == 0 //
+                || config.ethDepositMinAmount == 0
+                || config.ethDepositMaxAmount <= config.ethDepositMinAmount
+                || config.ethDepositMaxAmount >= type(uint96).max
+                || config.ethDepositMaxFee == 0
+                || config.ethDepositMaxFee
+                    >= type(uint96).max / config.ethDepositMaxCountPerBlock
+                || config.ethDepositRingBufferSize <= 1
+        ) revert L1_INVALID_CONFIG();
 
+        uint64 timeNow = uint64(block.timestamp);
         state.genesisHeight = uint64(block.number);
-        state.genesisTimestamp = uint64(block.timestamp);
-        state.feeBase = feeBase;
-        state.nextBlockId = 1;
-        state.lastProposedAt = uint64(block.timestamp);
-        state.l2Hashes[0] = genesisBlockHash;
+        state.genesisTimestamp = timeNow;
 
-        emit BlockVerified(0, genesisBlockHash);
-        emit HeaderSynced(0, genesisBlockHash);
+        state.blockFee = initBlockFee;
+        state.numBlocks = 1;
+
+        TaikoData.Block storage blk = state.blocks[0];
+        blk.proposedAt = timeNow;
+        blk.nextForkChoiceId = 2;
+        blk.verifiedForkChoiceId = 1;
+
+        TaikoData.ForkChoice storage fc = state.blocks[0].forkChoices[1];
+        fc.blockHash = genesisBlockHash;
+        fc.provenAt = timeNow;
+
+        emit BlockVerified(0, genesisBlockHash, 0);
     }
 
     function verifyBlocks(
         TaikoData.State storage state,
         TaikoData.Config memory config,
+        AddressResolver resolver,
         uint256 maxBlocks
-    ) public {
-        uint64 latestL2Height = state.latestVerifiedHeight;
-        bytes32 latestL2Hash = state.l2Hashes[
-            latestL2Height % config.blockHashHistory
-        ];
+    )
+        internal
+    {
+        uint256 i = state.lastVerifiedBlockId;
+        TaikoData.Block storage blk = state.blocks[i % config.ringBufferSize];
+
+        uint256 fcId = blk.verifiedForkChoiceId;
+        assert(fcId > 0);
+        bytes32 blockHash = blk.forkChoices[fcId].blockHash;
+        uint32 gasUsed = blk.forkChoices[fcId].gasUsed;
+        bytes32 signalRoot;
+
         uint64 processed;
+        unchecked {
+            ++i;
+        }
 
-        for (
-            uint256 i = state.latestVerifiedId + 1;
-            i < state.nextBlockId && processed < maxBlocks;
-            i++
-        ) {
-            TaikoData.ForkChoice storage fc = state.forkChoices[i][
-                latestL2Hash
-            ];
-            TaikoData.ProposedBlock storage target = state.getProposedBlock(
-                config.maxNumBlocks,
-                i
-            );
+        address systemProver = resolver.resolve("system_prover", true);
+        while (i < state.numBlocks && processed < maxBlocks) {
+            blk = state.blocks[i % config.ringBufferSize];
+            assert(blk.blockId == i);
 
-            if (fc.prover == address(0)) {
-                break;
-            } else {
-                (latestL2Height, latestL2Hash) = _verifyBlock({
-                    state: state,
-                    config: config,
-                    fc: fc,
-                    target: target,
-                    latestL2Height: latestL2Height,
-                    latestL2Hash: latestL2Hash
-                });
-                processed += 1;
-                emit BlockVerified(i, fc.blockHash);
+            fcId = LibUtils.getForkChoiceId(state, blk, blockHash, gasUsed);
 
-                // clean up the fork choice
-                fc.blockHash = 0;
-                fc.prover = address(0);
-                fc.provenAt = 0;
+            if (fcId == 0) break;
+
+            TaikoData.ForkChoice storage fc = blk.forkChoices[fcId];
+
+            if (fc.prover == address(0)) break;
+
+            uint256 proofCooldownPeriod = fc.prover == address(1)
+                ? config.systemProofCooldownPeriod
+                : config.proofCooldownPeriod;
+
+            if (block.timestamp < fc.provenAt + proofCooldownPeriod) break;
+
+            blockHash = fc.blockHash;
+            gasUsed = fc.gasUsed;
+            signalRoot = fc.signalRoot;
+
+            _markBlockVerified({
+                state: state,
+                blk: blk,
+                fcId: uint24(fcId),
+                fc: fc,
+                systemProver: systemProver
+            });
+
+            unchecked {
+                ++i;
+                ++processed;
             }
         }
 
         if (processed > 0) {
-            state.latestVerifiedId += processed;
-
-            if (latestL2Height > state.latestVerifiedHeight) {
-                state.latestVerifiedHeight = latestL2Height;
-
-                // Note: Not all L2 hashes are stored on L1, only the last
-                // verified one in a batch. This is sufficient because the last
-                // verified hash is the only one needed checking the existence
-                // of a cross-chain message with a merkle proof.
-                state.l2Hashes[
-                    latestL2Height % config.blockHashHistory
-                ] = latestL2Hash;
-                emit HeaderSynced(latestL2Height, latestL2Hash);
+            unchecked {
+                state.lastVerifiedBlockId += processed;
             }
+
+            if (config.relaySignalRoot) {
+                // Send the L2's signal root to the signal service so other
+                // TaikoL1 deployments, if they share the same signal service,
+                // can relay the signal to their corresponding TaikoL2 contract.
+                ISignalService(resolver.resolve("signal_service", false))
+                    .sendSignal(signalRoot);
+            }
+            emit CrossChainSynced(
+                state.lastVerifiedBlockId, blockHash, signalRoot
+            );
         }
     }
 
-    function withdrawBalance(
+    function _markBlockVerified(
         TaikoData.State storage state,
-        AddressResolver resolver
-    ) public {
-        uint256 balance = state.balances[msg.sender];
-        if (balance <= 1) return;
-
-        state.balances[msg.sender] = 1;
-        TaikoToken(resolver.resolve("tko_token", false)).mint(
-            msg.sender,
-            balance - 1
-        );
-    }
-
-    function getProofReward(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint64 provenAt,
-        uint64 proposedAt
-    ) public view returns (uint256 newFeeBase, uint256 reward, uint256 tRelBp) {
-        (newFeeBase, tRelBp) = LibUtils.getTimeAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: false,
-            tNow: provenAt,
-            tLast: proposedAt,
-            tAvg: state.avgProofTime
-        });
-        reward = LibUtils.getSlotsAdjustedFee({
-            state: state,
-            config: config,
-            isProposal: false,
-            feeBase: newFeeBase
-        });
-        reward = (reward * (10000 - config.rewardBurnBips)) / 10000;
-    }
-
-    function _verifyBlock(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
+        TaikoData.Block storage blk,
         TaikoData.ForkChoice storage fc,
-        TaikoData.ProposedBlock storage target,
-        uint64 latestL2Height,
-        bytes32 latestL2Hash
-    ) private returns (uint64 _latestL2Height, bytes32 _latestL2Hash) {
-        if (config.enableTokenomics) {
-            uint256 newFeeBase;
-            {
-                uint256 reward;
-                uint256 tRelBp; // [0-10000], see the whitepaper
-                (newFeeBase, reward, tRelBp) = getProofReward({
-                    state: state,
-                    config: config,
-                    provenAt: fc.provenAt,
-                    proposedAt: target.proposedAt
-                });
-
-                // reward the prover
-                if (reward > 0) {
-                    if (state.balances[fc.prover] == 0) {
-                        // Reduce reward to 1 wei as a penalty if the prover
-                        // has 0 TKO outstanding balance.
-                        state.balances[fc.prover] = 1;
-                    } else {
-                        state.balances[fc.prover] += reward;
-                    }
-                }
-
-                // refund proposer deposit
-                uint256 refund = (target.deposit * (10000 - tRelBp)) / 10000;
-                if (refund > 0) {
-                    if (state.balances[target.proposer] == 0) {
-                        // Reduce refund to 1 wei as a penalty if the proposer
-                        // has 0 TKO outstanding balance.
-                        state.balances[target.proposer] = 1;
-                    } else {
-                        state.balances[target.proposer] += refund;
-                    }
-                }
-            }
-            // Update feeBase and avgProofTime
-            state.feeBase = LibUtils.movingAverage({
-                maValue: state.feeBase,
-                newValue: newFeeBase,
-                maf: config.feeBaseMAF
-            });
+        uint24 fcId,
+        address systemProver
+    )
+        private
+    {
+        uint64 proofTime;
+        unchecked {
+            proofTime = uint64(fc.provenAt - blk.proposedAt);
         }
 
-        state.avgProofTime = LibUtils
-            .movingAverage({
-                maValue: state.avgProofTime,
-                newValue: fc.provenAt - target.proposedAt,
-                maf: config.proofTimeMAF
-            })
-            .toUint64();
+        uint64 reward;
 
-        if (fc.blockHash != LibUtils.BLOCK_DEADEND_HASH) {
-            _latestL2Height = latestL2Height + 1;
-            _latestL2Hash = fc.blockHash;
-        } else {
-            _latestL2Height = latestL2Height;
-            _latestL2Hash = latestL2Hash;
-        }
+        blk.nextForkChoiceId = 1;
+        blk.verifiedForkChoiceId = fcId;
+        emit BlockVerified(blk.blockId, fc.blockHash, reward);
     }
 }

@@ -1,17 +1,8 @@
 {
-  "configure-wallet": {
-    "title": "Configure your wallet"
-  },
-  "request-from-faucet": {
-    "title": "Request from faucet"
-  },
-  "use-the-bridge": {
-    "title": "Use the bridge"
-  },
-  "deploy-a-contract": {
-    "title": "Deploy a basic contract"
+  "build-on-taiko": {
+    "title": "Build on Taiko"
   },
   "run-a-node": {
-    "title": "Run a Taiko node"
+    "title": "Run a node"
   }
 }

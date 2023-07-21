@@ -1,0 +1,138 @@
+{
+  "nav": {
+    "bridge": "Bridge",
+    "faucet": "Faucet",
+    "activities": "Activities",
+    "explorer": "Explorer",
+    "guide": "Guide"
+  },
+
+  "bridge": {
+    "title": "Bridge",
+    "subtitle": "Send your assets across chains.",
+    "button": {
+      "approve": "Approve",
+      "bridge": "Bridge"
+    }
+  },
+
+  "processing_fee": {
+    "title": "Processing fee",
+    "link": "Customize fee",
+    "recommended": {
+      "label": "Recommended",
+      "calculating": "Calculating",
+      "error": "Error calculating"
+    },
+    "none": {
+      "label": "None",
+      "text": "Use ETH to manually claim your bridged token later",
+      "warning": "This option cannot be selected. You have not enough ETH to cover the gas fees for claiming."
+    },
+    "custom": {
+      "label": "Custom",
+      "text": "Customize your processing fee"
+    },
+    "button": {
+      "confirm": "Confirm",
+      "cancel": "Cancel"
+    }
+  },
+
+  "activities": {
+    "title": "Activities",
+    "subtitle": "Track your bridge transactions here.",
+    "header": {
+      "explorer": "Explorer link",
+      "status": "Status"
+    },
+    "link.explorer": "View details",
+    "no_transactions": "No transactions yet",
+    "button": {
+      "claim": "Claim",
+      "retry": "Retry",
+      "release": "Release"
+    },
+    "status": {
+      "initiated": "Initiated",
+      "pending": "Pending",
+      "claimed": "Claimed",
+      "failed": "Failed"
+    }
+  },
+
+  "faucet": {
+    "title": "Faucet",
+    "subtitle": "Mint test tokens.",
+    "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "button": {
+      "mint": "Mint",
+      "checking": "Checking mintability",
+      "minting": "Minting"
+    },
+    "wrong_chain": {
+      "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
+      "button": "Switch to {network}"
+    },
+    "warning": {
+      "no_connected": "Please connect your wallet to mint tokens.",
+      "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
+      "token_minted": "You have already minted this token."
+    }
+  },
+
+  "token_dropdown": {
+    "label": "Select token"
+  },
+
+  "amount_input": {
+    "label": "Amount",
+    "balance": "Balance",
+    "button": {
+      "max": "Max",
+      "failed_max": "Coult not estimate max amount to bridge."
+    },
+    "error": {
+      "insufficient_balance": "Insufficient balance",
+      "insufficient_allowance": "Insufficient allowance"
+    }
+  },
+
+  "chain_selector": {
+    "placeholder": "Select chain",
+    "currently_on": "You are currently on"
+  },
+
+  "messages": {
+    "account": {
+      "required": "Please connect your wallet.",
+      "connected": "Account connected",
+      "disconnected": "Account disconnected"
+    },
+    "network": {
+      "switching": "Switching network",
+      "rejected": "Request to switch chain rejected."
+    },
+    "mint": {
+      "rejected": "Request to mint rejected."
+    }
+  },
+
+  "chain": {
+    "to": "To",
+    "from": "From"
+  },
+
+  "custom_recipient": {
+    "placeholder": "Add custom recipient"
+  },
+
+  "wallet": {
+    "connect": "Connect wallet",
+    "status": {
+      "disconnected": "Disconnected",
+      "connected": "Connected",
+      "connecting": "Connecting"
+    }
+  }
+}

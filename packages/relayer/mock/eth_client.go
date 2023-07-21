@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +23,14 @@ var (
 )
 
 type EthClient struct {
+}
+
+func (c *EthClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(100), nil
+}
+
+func (c *EthClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
+	return big.NewInt(100), nil
 }
 
 func (c *EthClient) ChainID(ctx context.Context) (*big.Int, error) {
@@ -70,4 +79,25 @@ func (c *EthClient) HeaderByHash(ctx context.Context, hash common.Hash) (*types.
 	}
 
 	return Header, nil
+}
+
+func (c *EthClient) SubscribeNewHead(ctx context.Context, ch chan<- *types.Header) (ethereum.Subscription, error) {
+	go func() {
+		t := time.NewTicker(time.Second * 1)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				ch <- &types.Header{}
+			}
+		}
+	}()
+
+	s := &Subscription{
+		errChan: make(chan error),
+	}
+
+	return s, nil
 }

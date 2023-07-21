@@ -2,13 +2,15 @@ package repo
 
 import (
 	"context"
-	"math/big"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
+	"net/http"
+
+	"github.com/morkid/paginate"
 	"github.com/pkg/errors"
 	"github.com/taikoxyz/taiko-mono/packages/relayer"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type EventRepository struct {
@@ -37,7 +39,11 @@ func (r *EventRepository) Save(ctx context.Context, opts relayer.SaveEventOpts) 
 		CanonicalTokenName:     opts.CanonicalTokenName,
 		CanonicalTokenDecimals: opts.CanonicalTokenDecimals,
 		Amount:                 opts.Amount,
+		MsgHash:                opts.MsgHash,
+		MessageOwner:           opts.MessageOwner,
+		Event:                  opts.Event,
 	}
+
 	if err := r.db.GormDB().Create(e).Error; err != nil {
 		return nil, errors.Wrap(err, "r.db.Create")
 	}
@@ -59,16 +65,39 @@ func (r *EventRepository) UpdateStatus(ctx context.Context, id int, status relay
 	return nil
 }
 
-func (r *EventRepository) FindAllByAddressAndChainID(
+func (r *EventRepository) FirstByMsgHash(
 	ctx context.Context,
-	chainID *big.Int,
-	address common.Address,
-) ([]*relayer.Event, error) {
-	e := make([]*relayer.Event, 0)
-	if err := r.db.GormDB().Where("chain_id = ?", chainID.Int64()).
-		Find(&e, datatypes.JSONQuery("data").
-			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.Find")
+	msgHash string,
+) (*relayer.Event, error) {
+	e := &relayer.Event{}
+	// find all message sent events
+	if err := r.db.GormDB().Where("msg_hash = ?", msgHash).
+		First(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "r.db.First")
+	}
+
+	return e, nil
+}
+
+func (r *EventRepository) FirstByEventAndMsgHash(
+	ctx context.Context,
+	event string,
+	msgHash string,
+) (*relayer.Event, error) {
+	e := &relayer.Event{}
+	// find all message sent events
+	if err := r.db.GormDB().Where("msg_hash = ?", msgHash).
+		Where("event = ?", event).
+		First(&e).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			return nil, nil
+		}
+
+		return nil, errors.Wrap(err, "r.db.First")
 	}
 
 	return e, nil
@@ -76,14 +105,42 @@ func (r *EventRepository) FindAllByAddressAndChainID(
 
 func (r *EventRepository) FindAllByAddress(
 	ctx context.Context,
-	address common.Address,
-) ([]*relayer.Event, error) {
-	e := make([]*relayer.Event, 0)
-	if err := r.db.GormDB().
-		Find(&e, datatypes.JSONQuery("data").
-			Equals(strings.ToLower(address.Hex()), "Message", "Owner")).Error; err != nil {
-		return nil, errors.Wrap(err, "r.db.Find")
+	req *http.Request,
+	opts relayer.FindAllByAddressOpts,
+) (paginate.Page, error) {
+	pg := paginate.New(&paginate.Config{
+		DefaultSize: 100,
+	})
+
+	q := r.db.GormDB().
+		Model(&relayer.Event{}).Where("message_owner = ?", strings.ToLower(opts.Address.Hex()))
+
+	if opts.EventType != nil {
+		q = q.Where("event_type = ?", *opts.EventType)
 	}
 
-	return e, nil
+	if opts.MsgHash != nil && *opts.MsgHash != "" {
+		q = q.Where("msg_hash = ?", *opts.MsgHash)
+	}
+
+	if opts.ChainID != nil {
+		q = q.Where("chain_id = ?", opts.ChainID.Int64())
+	}
+
+	if opts.Event != nil && *opts.Event != "" {
+		q = q.Where("event = ?", *opts.Event)
+	}
+
+	reqCtx := pg.With(q)
+
+	page := reqCtx.Request(req).Response(&[]relayer.Event{})
+
+	return page, nil
+}
+
+func (r *EventRepository) Delete(
+	ctx context.Context,
+	id int,
+) error {
+	return r.db.GormDB().Delete(relayer.Event{}, id).Error
 }

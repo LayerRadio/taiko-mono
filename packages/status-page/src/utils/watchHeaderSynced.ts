@@ -7,7 +7,10 @@ export const watchHeaderSynced = async (
   onEvent: (value: string | number | boolean) => void
 ) => {
   const contract: Contract = new Contract(taikoL1Address, TaikoL1, provider);
-  contract.on("HeaderSynced", (height, srcHeight, srcHash) => {
-    onEvent(srcHash);
-  });
+  const listener = (lastVerifiedBlockId, blockHash, signalRoot) => {
+    onEvent(blockHash);
+  };
+  contract.on("CrossChainSynced", listener);
+
+  return () => contract.off("CrossChainSynced", listener);
 };

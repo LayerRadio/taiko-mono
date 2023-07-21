@@ -1,7 +1,6 @@
 name: Bug report 🐛
 description: Report a bug
-title: "fix: INSERT_DESCRIPTIVE_TITLE"
-labels: ["bug", "triage"]
+labels: ["category.bug", "status.needs-triage"]
 body:
   - type: markdown
     attributes:

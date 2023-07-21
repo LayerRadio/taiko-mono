@@ -1,5 +1,76 @@
 [
   {
+    "inputs": [],
+    "name": "RESOLVER_DENIED",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "RESOLVER_INVALID_ADDR",
+    "type": "error"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
+        "name": "name",
+        "type": "bytes32"
+      }
+    ],
+    "name": "RESOLVER_ZERO_ADDR",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_CANONICAL_TOKEN_NOT_FOUND",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_AMOUNT",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_OWNER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_SENDER",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_SRC_CHAIN_ID",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_TO",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_TOKEN",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_INVALID_VALUE",
+    "type": "error"
+  },
+  {
+    "inputs": [],
+    "name": "TOKENVAULT_MESSAGE_NOT_FAILED",
+    "type": "error"
+  },
+  {
     "anonymous": false,
     "inputs": [
       {
@@ -245,7 +316,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "bridgedAddress",
         "type": "address"
       }
     ],
@@ -284,12 +355,12 @@
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "",
+        "name": "chainId",
         "type": "uint256"
       },
       {
         "internalType": "address",
-        "name": "",
+        "name": "canonicalAddress",
         "type": "address"
       }
     ],
@@ -297,7 +368,7 @@
     "outputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "bridgedAddress",
         "type": "address"
       }
     ],
@@ -321,7 +392,7 @@
     "inputs": [
       {
         "internalType": "address",
-        "name": "",
+        "name": "tokenAddress",
         "type": "address"
       }
     ],
@@ -329,7 +400,7 @@
     "outputs": [
       {
         "internalType": "bool",
-        "name": "",
+        "name": "isBridged",
         "type": "bool"
       }
     ],
@@ -340,7 +411,7 @@
     "inputs": [
       {
         "internalType": "bytes32",
-        "name": "",
+        "name": "msgHash",
         "type": "bytes32"
       }
     ],
@@ -523,9 +594,14 @@
   {
     "inputs": [
       {
-        "internalType": "string",
+        "internalType": "uint256",
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bytes32",
         "name": "name",
-        "type": "string"
+        "type": "bytes32"
       },
       {
         "internalType": "bool",
@@ -547,14 +623,9 @@
   {
     "inputs": [
       {
-        "internalType": "uint256",
-        "name": "chainId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "string",
+        "internalType": "bytes32",
         "name": "name",
-        "type": "string"
+        "type": "bytes32"
       },
       {
         "internalType": "bool",
@@ -617,44 +688,6 @@
       }
     ],
     "name": "sendERC20",
-    "outputs": [],
-    "stateMutability": "payable",
-    "type": "function"
-  },
-  {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "destChainId",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "to",
-        "type": "address"
-      },
-      {
-        "internalType": "uint256",
-        "name": "gasLimit",
-        "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "processingFee",
-        "type": "uint256"
-      },
-      {
-        "internalType": "address",
-        "name": "refundAddress",
-        "type": "address"
-      },
-      {
-        "internalType": "string",
-        "name": "memo",
-        "type": "string"
-      }
-    ],
-    "name": "sendEther",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"

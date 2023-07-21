@@ -32,6 +32,8 @@ var (
 		"L1_BRIDGE_ADDRESS",
 		"L2_BRIDGE_ADDRESS",
 		"L2_TAIKO_ADDRESS",
+		"L1_TOKEN_VAULT_ADDRESS",
+		"L2_TOKEN_VAULT_ADDRESS",
 		"L1_RPC_URL",
 		"L2_RPC_URL",
 		"MYSQL_USER",
@@ -42,11 +44,12 @@ var (
 		"PROMETHEUS_HTTP_PORT",
 	}
 
-	defaultBlockBatchSize                = 2
-	defaultNumGoroutines                 = 10
-	defaultSubscriptionBackoff           = 600 * time.Second
-	defaultConfirmations                 = 15
-	defaultHeaderSyncIntervalSeconds int = 60
+	defaultBlockBatchSize                    = 2
+	defaultNumGoroutines                     = 10
+	defaultSubscriptionBackoff               = 600 * time.Second
+	defaultConfirmations                     = 15
+	defaultHeaderSyncIntervalSeconds     int = 60
+	defaultConfirmationsTimeoutInSeconds     = 900
 )
 
 func Run(
@@ -177,6 +180,11 @@ func makeIndexers(
 		confirmations = defaultConfirmations
 	}
 
+	confirmationsTimeoutInSeconds, err := strconv.Atoi(os.Getenv("CONFIRMATIONS_TIMEOUT_IN_SECONDS"))
+	if err != nil || confirmationsTimeoutInSeconds <= 0 {
+		confirmationsTimeoutInSeconds = defaultConfirmationsTimeoutInSeconds
+	}
+
 	l1EthClient, err := ethclient.Dial(os.Getenv("L1_RPC_URL"))
 	if err != nil {
 		log.Fatal(err)
@@ -208,18 +216,20 @@ func makeIndexers(
 			RPCClient:     l1RpcClient,
 			DestRPCClient: l2RpcClient,
 
-			ECDSAKey:                    os.Getenv("RELAYER_ECDSA_KEY"),
-			BridgeAddress:               common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
-			DestBridgeAddress:           common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
-			DestTaikoAddress:            common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
-			SrcTaikoAddress:             common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
-			SrcSignalServiceAddress:     common.HexToAddress(os.Getenv("L1_SIGNAL_SERVICE_ADDRESS")),
-			BlockBatchSize:              uint64(blockBatchSize),
-			NumGoroutines:               numGoroutines,
-			SubscriptionBackoff:         subscriptionBackoff,
-			Confirmations:               uint64(confirmations),
-			ProfitableOnly:              profitableOnly,
-			HeaderSyncIntervalInSeconds: int64(headerSyncIntervalInSeconds),
+			ECDSAKey:                      os.Getenv("RELAYER_ECDSA_KEY"),
+			BridgeAddress:                 common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
+			DestBridgeAddress:             common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
+			DestTaikoAddress:              common.HexToAddress(os.Getenv("L2_TAIKO_ADDRESS")),
+			SrcTaikoAddress:               common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
+			SrcSignalServiceAddress:       common.HexToAddress(os.Getenv("L1_SIGNAL_SERVICE_ADDRESS")),
+			DestTokenVaultAddress:         common.HexToAddress(os.Getenv("L2_TOKEN_VAULT_ADDRESS")),
+			BlockBatchSize:                uint64(blockBatchSize),
+			NumGoroutines:                 numGoroutines,
+			SubscriptionBackoff:           subscriptionBackoff,
+			Confirmations:                 uint64(confirmations),
+			ProfitableOnly:                profitableOnly,
+			HeaderSyncIntervalInSeconds:   int64(headerSyncIntervalInSeconds),
+			ConfirmationsTimeoutInSeconds: int64(confirmationsTimeoutInSeconds),
 		})
 		if err != nil {
 			log.Fatal(err)
@@ -237,17 +247,19 @@ func makeIndexers(
 			RPCClient:     l2RpcClient,
 			DestRPCClient: l1RpcClient,
 
-			ECDSAKey:                    os.Getenv("RELAYER_ECDSA_KEY"),
-			BridgeAddress:               common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
-			DestBridgeAddress:           common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
-			DestTaikoAddress:            common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
-			SrcSignalServiceAddress:     common.HexToAddress(os.Getenv("L2_SIGNAL_SERVICE_ADDRESS")),
-			BlockBatchSize:              uint64(blockBatchSize),
-			NumGoroutines:               numGoroutines,
-			SubscriptionBackoff:         subscriptionBackoff,
-			Confirmations:               uint64(confirmations),
-			ProfitableOnly:              profitableOnly,
-			HeaderSyncIntervalInSeconds: int64(headerSyncIntervalInSeconds),
+			ECDSAKey:                      os.Getenv("RELAYER_ECDSA_KEY"),
+			BridgeAddress:                 common.HexToAddress(os.Getenv("L2_BRIDGE_ADDRESS")),
+			DestBridgeAddress:             common.HexToAddress(os.Getenv("L1_BRIDGE_ADDRESS")),
+			DestTaikoAddress:              common.HexToAddress(os.Getenv("L1_TAIKO_ADDRESS")),
+			SrcSignalServiceAddress:       common.HexToAddress(os.Getenv("L2_SIGNAL_SERVICE_ADDRESS")),
+			DestTokenVaultAddress:         common.HexToAddress(os.Getenv("L1_TOKEN_VAULT_ADDRESS")),
+			BlockBatchSize:                uint64(blockBatchSize),
+			NumGoroutines:                 numGoroutines,
+			SubscriptionBackoff:           subscriptionBackoff,
+			Confirmations:                 uint64(confirmations),
+			ProfitableOnly:                profitableOnly,
+			HeaderSyncIntervalInSeconds:   int64(headerSyncIntervalInSeconds),
+			ConfirmationsTimeoutInSeconds: int64(confirmationsTimeoutInSeconds),
 		})
 		if err != nil {
 			log.Fatal(err)

@@ -4,149 +4,136 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {
-    SafeCastUpgradeable
-} from "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
-
-import {LibMath} from "../../libs/LibMath.sol";
-import {TaikoData} from "../TaikoData.sol";
+import { LibMath } from "../../libs/LibMath.sol";
+import { LibEthDepositing } from "./LibEthDepositing.sol";
+import { SafeCastUpgradeable } from
+    "@openzeppelin/contracts-upgradeable/utils/math/SafeCastUpgradeable.sol";
+import { TaikoData } from "../TaikoData.sol";
 
 library LibUtils {
     using LibMath for uint256;
 
-    bytes32 public constant BLOCK_DEADEND_HASH = bytes32(uint256(1));
+    error L1_BLOCK_ID();
 
-    error L1_BLOCK_NUMBER();
-
-    struct StateVariables {
-        uint256 feeBase;
-        uint64 genesisHeight;
-        uint64 genesisTimestamp;
-        uint64 nextBlockId;
-        uint64 lastProposedAt;
-        uint64 avgBlockTime;
-        uint64 latestVerifiedHeight;
-        uint64 latestVerifiedId;
-        uint64 avgProofTime;
-    }
-
-    function getProposedBlock(
-        TaikoData.State storage state,
-        uint256 maxNumBlocks,
-        uint256 id
-    ) internal view returns (TaikoData.ProposedBlock storage) {
-        return state.proposedBlocks[id % maxNumBlocks];
-    }
-
-    function getL2BlockHash(
-        TaikoData.State storage state,
-        uint256 number,
-        uint256 blockHashHistory
-    ) internal view returns (bytes32) {
-        if (
-            number + blockHashHistory <= state.latestVerifiedHeight ||
-            number > state.latestVerifiedHeight
-        ) revert L1_BLOCK_NUMBER();
-
-        return state.l2Hashes[number % blockHashHistory];
-    }
-
-    function getStateVariables(
-        TaikoData.State storage state
-    ) internal view returns (StateVariables memory) {
-        return
-            StateVariables({
-                feeBase: state.feeBase,
-                genesisHeight: state.genesisHeight,
-                genesisTimestamp: state.genesisTimestamp,
-                nextBlockId: state.nextBlockId,
-                lastProposedAt: state.lastProposedAt,
-                avgBlockTime: state.avgBlockTime,
-                latestVerifiedHeight: state.latestVerifiedHeight,
-                latestVerifiedId: state.latestVerifiedId,
-                avgProofTime: state.avgProofTime
-            });
-    }
-
-    // Implement "Incentive Multipliers", see the whitepaper.
-    function getTimeAdjustedFee(
+    function getL2ChainData(
         TaikoData.State storage state,
         TaikoData.Config memory config,
-        bool isProposal,
-        uint64 tNow,
-        uint64 tLast,
-        uint64 tAvg
-    ) internal view returns (uint256 newFeeBase, uint256 tRelBp) {
-        if (tAvg == 0) {
-            newFeeBase = state.feeBase;
-            // tRelBp = 0;
+        uint256 blockId
+    )
+        internal
+        view
+        returns (bool found, TaikoData.Block storage blk)
+    {
+        uint256 id = blockId == 0 ? state.lastVerifiedBlockId : blockId;
+        blk = state.blocks[id % config.ringBufferSize];
+        found = (blk.blockId == id && blk.verifiedForkChoiceId != 0);
+    }
+
+    function getForkChoiceId(
+        TaikoData.State storage state,
+        TaikoData.Block storage blk,
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    )
+        internal
+        view
+        returns (uint256 fcId)
+    {
+        if (
+            blk.forkChoices[1].key
+                == keyForForkChoice(parentHash, parentGasUsed)
+        ) {
+            fcId = 1;
         } else {
-            uint256 _tAvg = tAvg > config.proofTimeCap
-                ? config.proofTimeCap
-                : tAvg;
-            uint256 tGrace = (config.feeGracePeriodPctg * _tAvg) / 100;
-            uint256 tMax = (config.feeMaxPeriodPctg * _tAvg) / 100;
-            uint256 a = tLast + tGrace;
-            uint256 b = tNow > a ? tNow - a : 0;
-            tRelBp = (b.min(tMax) * 10000) / tMax; // [0 - 10000]
-            uint256 alpha = 10000 +
-                ((config.rewardMultiplierPctg - 100) * tRelBp) /
-                100;
-            if (isProposal) {
-                newFeeBase = (state.feeBase * 10000) / alpha; // fee
-            } else {
-                newFeeBase = (state.feeBase * alpha) / 10000; // reward
-            }
+            fcId = state.forkChoiceIds[blk.blockId][parentHash][parentGasUsed];
+        }
+
+        if (fcId >= blk.nextForkChoiceId) {
+            fcId = 0;
         }
     }
 
-    // Implement "Slot-availability Multipliers", see the whitepaper.
-    function getSlotsAdjustedFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        bool isProposal,
-        uint256 feeBase
-    ) internal view returns (uint256) {
-        // m is the `n'` in the whitepaper
-        uint256 m = 1000 *
-            (config.maxNumBlocks - 1) +
-            config.slotSmoothingFactor;
-        // n is the number of unverified blocks
-        uint256 n = 1000 * (state.nextBlockId - state.latestVerifiedId - 1);
-        // k is `m − n + 1` or `m − n - 1`in the whitepaper
-        uint256 k = isProposal ? m - n - 1000 : m - n + 1000;
-        return (feeBase * (m - 1000) * m) / (m - n) / k;
-    }
-
-    // Implement "Bootstrap Discount Multipliers", see the whitepaper.
-    function getBootstrapDiscountedFee(
-        TaikoData.State storage state,
-        TaikoData.Config memory config,
-        uint256 feeBase
-    ) internal view returns (uint256) {
-        uint256 halves = uint256(block.timestamp - state.genesisTimestamp) /
-            config.bootstrapDiscountHalvingPeriod;
-        uint256 gamma = 1024 - (1024 >> halves);
-        return (feeBase * gamma) / 1024;
-    }
-
-    function hashMetadata(
-        TaikoData.BlockMetadata memory meta
-    ) internal pure returns (bytes32) {
-        return keccak256(abi.encode(meta));
+    function getStateVariables(TaikoData.State storage state)
+        internal
+        view
+        returns (TaikoData.StateVariables memory)
+    {
+        return TaikoData.StateVariables({
+            blockFee: state.blockFee,
+            genesisHeight: state.genesisHeight,
+            genesisTimestamp: state.genesisTimestamp,
+            numBlocks: state.numBlocks,
+            lastVerifiedBlockId: state.lastVerifiedBlockId,
+            nextEthDepositToProcess: state.nextEthDepositToProcess,
+            numEthDeposits: state.numEthDeposits - state.nextEthDepositToProcess
+        });
     }
 
     function movingAverage(
         uint256 maValue,
         uint256 newValue,
         uint256 maf
-    ) internal pure returns (uint256) {
+    )
+        internal
+        pure
+        returns (uint256)
+    {
         if (maValue == 0) {
             return newValue;
         }
         uint256 _ma = (maValue * (maf - 1) + newValue) / maf;
         return _ma > 0 ? _ma : maValue;
+    }
+
+    /// @dev Hashing the block metadata.
+    function hashMetadata(TaikoData.BlockMetadata memory meta)
+        internal
+        pure
+        returns (bytes32 hash)
+    {
+        uint256[7] memory inputs;
+
+        inputs[0] = (uint256(meta.id) << 192) | (uint256(meta.timestamp) << 128)
+            | (uint256(meta.l1Height) << 64);
+
+        inputs[1] = uint256(meta.l1Hash);
+        inputs[2] = uint256(meta.mixHash);
+        inputs[3] =
+            uint256(LibEthDepositing.hashEthDeposits(meta.depositsProcessed));
+        inputs[4] = uint256(meta.txListHash);
+
+        inputs[5] = (uint256(meta.txListByteStart) << 232)
+            | (uint256(meta.txListByteEnd) << 208) //
+            | (uint256(meta.gasLimit) << 176)
+            | (uint256(uint160(meta.beneficiary)) << 16);
+
+        inputs[6] = (uint256(uint160(meta.treasury)) << 96);
+
+        assembly {
+            hash := keccak256(inputs, mul(7, 32))
+        }
+    }
+
+    function keyForForkChoice(
+        bytes32 parentHash,
+        uint32 parentGasUsed
+    )
+        internal
+        pure
+        returns (bytes32 key)
+    {
+        assembly {
+            let ptr := mload(0x40)
+            mstore(ptr, parentGasUsed)
+            mstore(add(ptr, 32), parentHash)
+            key := keccak256(add(ptr, 28), 36)
+            mstore(0x40, add(ptr, 64))
+        }
+    }
+
+    function getVerifierName(uint16 id) internal pure returns (bytes32) {
+        return bytes32(uint256(0x1000000) + id);
     }
 }

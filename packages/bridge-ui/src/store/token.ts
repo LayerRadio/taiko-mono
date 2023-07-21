@@ -1,5 +1,6 @@
-import { writable } from "svelte/store";
-import { ETH } from "../domain/token";
-import type { Token } from "../domain/token";
+import { writable } from 'svelte/store';
 
-export const token = writable<Token>(ETH);
+import type { Token } from '../domain/token';
+import { ETHToken } from '../token/tokens';
+
+export const token = writable<Token>(ETHToken);

@@ -1,29 +1,44 @@
-import { useRouter } from "next/router";
+import { Footer } from "./components/Home";
+import { ThemedImage } from "./components/ThemedImage";
 import { useConfig } from "nextra-theme-docs";
-import Footer from "./components/Footer";
-import ThemedImage from "./components/ThemedImage";
+import { useRouter } from "next/router";
+import { ThemeToggle } from "./components/ThemeToggle";
+import { ELDFELL_CONFIG } from "./domain/chain";
 
 export default {
   banner: {
     key: "banner",
     text: (
-      <a href="https://twitter.com/taikoxyz/" target="_blank">
-        📌 The alpha-1 testnet (Snæfellsjökull) has been shut down, with the
-        alpha-2 testnet coming soon. Follow us to stay updated →
+      <a href="/docs/guides" target="_blank">
+        📌 {ELDFELL_CONFIG.names.shortishName} is here! Get started →
       </a>
     ),
   },
   chat: {
     link: "https://discord.gg/taikoxyz",
   },
-  darkMode: true,
+  darkMode: false,
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
-    text: "Edit this page on GitHub ↗",
+    text: "Edit this page ↗",
   },
+  // TODO: we should add the feedback link, check if nextra fixed it: https://github.com/shuding/nextra/issues/2067
   feedback: {
-    content: null,
+    content: (
+      <button
+        onClick={() => {
+          const win = window.open(
+            "https://forms.gle/9JWjWtjbWytZZcNRA",
+            "_blank",
+            "noopener,noreferrer"
+          );
+          if (win) win.opener = null;
+        }}
+      >
+        Leave feedback ↗
+      </button>
+    ),
   },
   footer: {
     component: Footer,
@@ -42,15 +57,26 @@ export default {
             "A decentralized, Ethereum-equivalent ZK-Rollup."
           }
         />
-        <link rel="icon" href="/images/favicon.png" />
+        <meta
+          property="og:image"
+          content={"/images/Taiko_social_media_preview.png"}
+        />
+        <link rel="icon" href="/images/favicon.svg" />
       </>
     );
   },
   logo: <ThemedImage />,
+  navbar: {
+    extraContent: (
+      <>
+        <ThemeToggle />
+      </>
+    ),
+  },
   nextThemes: {
     defaultTheme: "light",
   },
-  primaryHue: 315,
+  primaryHue: 323,
   project: {
     link: "https://github.com/taikoxyz",
   },
@@ -58,5 +84,8 @@ export default {
     return {
       titleTemplate: "%s – Taiko",
     };
+  },
+  sidebar: {
+    autoCollapse: true,
   },
 };

@@ -1,34 +1,41 @@
-import type { BigNumber, ethers, Transaction } from "ethers";
-import type { Message } from "./message";
+import type { BigNumber, ethers, Transaction } from 'ethers';
 
-enum BridgeType {
-  ERC20 = "ERC20",
-  ETH = "ETH",
-  ERC721 = "ERC721",
-  ERC1155 = "ERC1155",
+import type { ChainID } from './chain';
+import type { Message } from './message';
+
+export enum BridgeType {
+  ERC20 = 'ERC20',
+  ETH = 'ETH',
+  ERC721 = 'ERC721',
+  ERC1155 = 'ERC1155',
 }
 
-type ApproveOpts = {
-  amountInWei: BigNumber;
+export type ApproveOpts = {
+  amount: BigNumber;
   contractAddress: string;
   signer: ethers.Signer;
   spenderAddress: string;
 };
 
-type BridgeOpts = {
-  amountInWei: BigNumber;
+export type BridgeOpts = {
+  amount: BigNumber;
   signer: ethers.Signer;
   tokenAddress: string;
-  fromChainId: number;
-  toChainId: number;
-  tokenVaultAddress: string;
+  srcChainId: ChainID;
+  destChainId: ChainID;
+  tokenVaultAddress?: string;
+  bridgeAddress?: string;
   processingFeeInWei?: BigNumber;
   tokenId?: string;
   memo?: string;
+
+  // TODO: remove this, and move this check to the ERC20 bridge directly
   isBridgedTokenAlreadyDeployed?: boolean;
+
+  to: string;
 };
 
-type ClaimOpts = {
+export type ClaimOpts = {
   message: Message;
   msgHash: string;
   signer: ethers.Signer;
@@ -36,7 +43,7 @@ type ClaimOpts = {
   srcBridgeAddress: string;
 };
 
-type ReleaseOpts = {
+export type ReleaseOpts = {
   message: Message;
   msgHash: string;
   signer: ethers.Signer;
@@ -46,13 +53,11 @@ type ReleaseOpts = {
   srcTokenVaultAddress: string;
 };
 
-interface Bridge {
-  RequiresAllowance(opts: ApproveOpts): Promise<boolean>;
-  Approve(opts: ApproveOpts): Promise<Transaction>;
-  Bridge(opts: BridgeOpts): Promise<Transaction>;
-  EstimateGas(opts: BridgeOpts): Promise<BigNumber>;
-  Claim(opts: ClaimOpts): Promise<Transaction>;
-  ReleaseTokens(opts: ReleaseOpts): Promise<Transaction>;
+export interface Bridge {
+  requiresAllowance(opts: ApproveOpts): Promise<boolean>;
+  approve(opts: ApproveOpts): Promise<Transaction>;
+  bridge(opts: BridgeOpts): Promise<Transaction>;
+  estimateGas(opts: BridgeOpts): Promise<BigNumber>;
+  claim(opts: ClaimOpts): Promise<Transaction>;
+  release(opts: ReleaseOpts): Promise<Transaction>;
 }
-
-export { ApproveOpts, BridgeOpts, BridgeType, Bridge, ClaimOpts, ReleaseOpts };

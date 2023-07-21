@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
@@ -26,6 +27,8 @@ func (svc *Service) FilterThenSubscribe(
 	if err != nil {
 		return errors.Wrap(err, "svc.ethClient.ChainID()")
 	}
+
+	go scanBlocks(ctx, svc.ethClient, chainID)
 
 	// if subscribing to new events, skip filtering and subscribe
 	if watchMode == relayer.SubscribeWatchMode {
@@ -61,16 +64,41 @@ func (svc *Service) FilterThenSubscribe(
 			end = header.Number.Uint64()
 		}
 
-		events, err := svc.bridge.FilterMessageSent(&bind.FilterOpts{
+		// filter exclusive of the end block.
+		// we use "end" as the next starting point of the batch, and
+		// process up to end - 1 for this batch.
+		filterEnd := end - 1
+
+		fmt.Printf("block batch from %v to %v", i, filterEnd)
+		fmt.Println()
+
+		filterOpts := &bind.FilterOpts{
 			Start:   svc.processingBlockHeight,
-			End:     &end,
+			End:     &filterEnd,
 			Context: ctx,
-		}, nil)
+		}
+
+		messageStatusChangedEvents, err := svc.bridge.FilterMessageStatusChanged(filterOpts, nil)
+		if err != nil {
+			return errors.Wrap(err, "bridge.FilterMessageStatusChanged")
+		}
+
+		// we dont need to do anything with msgStatus events except save them to the DB.
+		// we dont need to process them. they are for exposing via the API.
+
+		err = svc.saveMessageStatusChangedEvents(ctx, chainID, messageStatusChangedEvents)
+		if err != nil {
+			return errors.Wrap(err, "bridge.saveMessageStatusChangedEvents")
+		}
+
+		messageSentEvents, err := svc.bridge.FilterMessageSent(filterOpts, nil)
 		if err != nil {
 			return errors.Wrap(err, "bridge.FilterMessageSent")
 		}
 
-		if !events.Next() || events.Event == nil {
+		if !messageSentEvents.Next() || messageSentEvents.Event == nil {
+			// use "end" not "filterEnd" here, because it will be used as the start
+			// of the next batch.
 			if err := svc.handleNoEventsInBatch(ctx, chainID, int64(end)); err != nil {
 				return errors.Wrap(err, "svc.handleNoEventsInBatch")
 			}
@@ -83,11 +111,12 @@ func (svc *Service) FilterThenSubscribe(
 		group.SetLimit(svc.numGoroutines)
 
 		for {
-			event := events.Event
+			event := messageSentEvents.Event
 
 			group.Go(func() error {
 				err := svc.handleEvent(groupCtx, chainID, event)
 				if err != nil {
+					relayer.ErrorEvents.Inc()
 					// log error but always return nil to keep other goroutines active
 					log.Error(err.Error())
 				}
@@ -96,7 +125,7 @@ func (svc *Service) FilterThenSubscribe(
 			})
 
 			// if there are no more events
-			if !events.Next() {
+			if !messageSentEvents.Next() {
 				// wait for the last of the goroutines to finish
 				if err := group.Wait(); err != nil {
 					return errors.Wrap(err, "group.Wait")

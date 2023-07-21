@@ -1,192 +1,190 @@
-const mockChainIdToTokenVaultAddress = jest.fn();
-jest.mock("../store/bridge", () => ({
-  chainIdToTokenVaultAddress: mockChainIdToTokenVaultAddress,
-}));
+import { BigNumber, ethers, Signer } from 'ethers';
+import { get } from 'svelte/store';
 
-const mockGet = jest.fn();
-
-import { BigNumber, ethers, Signer } from "ethers";
-import { chainIdToTokenVaultAddress } from "../store/bridge";
-import { get } from "svelte/store";
-import { CHAIN_MAINNET, CHAIN_TKO } from "../domain/chain";
-import { ProcessingFeeMethod } from "../domain/fee";
-import { ETH, TEST_ERC20 } from "../domain/token";
-import { signer } from "../store/signer";
+import { mainnetChain, taikoChain } from '../chain/chains';
+import { L1_CHAIN_ID, L2_CHAIN_ID } from '../constants/envVars';
+import { ProcessingFeeMethod } from '../domain/fee';
+import type { Token } from '../domain/token';
+import { providers } from '../provider/providers';
+import { signer } from '../store/signer';
+import { ETHToken, testERC20Tokens } from '../token/tokens';
 import {
   erc20DeployedGasLimit,
   erc20NotDeployedGasLimit,
   ethGasLimit,
   recommendProcessingFee,
-} from "./recommendProcessingFee";
+} from './recommendProcessingFee';
 
-jest.mock("svelte/store", () => ({
-  ...(jest.requireActual("svelte/store") as object),
-  get: function () {
-    return mockGet();
-  },
-}));
+jest.mock('../constants/envVars');
 
 const mockContract = {
   canonicalToBridged: jest.fn(),
 };
 
-const mockProver = {
-  GenerateProof: jest.fn(),
-};
-
-jest.mock("ethers", () => ({
-  /* eslint-disable-next-line */
-  ...(jest.requireActual("ethers") as object),
+jest.mock('ethers', () => ({
+  ...jest.requireActual('ethers'),
   Contract: function () {
     return mockContract;
   },
 }));
 
 const gasPrice = 2;
-const mockProvider = {
-  getGasPrice: () => {
-    return 2;
+const mockGetGasPrice = async () => Promise.resolve(BigNumber.from(gasPrice));
+
+// Mocking providers to return the desired gasPrice
+providers[mainnetChain.id].getGasPrice = mockGetGasPrice;
+providers[taikoChain.id].getGasPrice = mockGetGasPrice;
+
+const mockSigner = {} as Signer;
+
+const mockToken = {
+  name: 'MockToken',
+  addresses: {
+    [L1_CHAIN_ID]: '0x00',
+    [L2_CHAIN_ID]: '0x123', // token is deployed on L2
   },
-};
+  decimals: 18,
+  symbol: 'MKT',
+  logoComponent: null,
+} as Token;
 
-const mockSigner = {};
-
-describe("recommendProcessingFee()", () => {
+describe('recommendProcessingFee()', () => {
   beforeEach(() => {
     jest.resetAllMocks();
   });
 
-  it("returns zero if values not set", async () => {
+  it('returns zero if values not set', async () => {
     expect(
       await recommendProcessingFee(
         null,
-        CHAIN_MAINNET,
+        mainnetChain,
         ProcessingFeeMethod.RECOMMENDED,
-        ETH,
-        get(signer)
-      )
-    ).toStrictEqual("0");
+        ETHToken,
+        get(signer),
+      ),
+    ).toEqual('0');
 
     expect(
       await recommendProcessingFee(
-        CHAIN_MAINNET,
+        mainnetChain,
         null,
         ProcessingFeeMethod.RECOMMENDED,
-        ETH,
-        get(signer)
-      )
-    ).toStrictEqual("0");
+        ETHToken,
+        get(signer),
+      ),
+    ).toEqual('0');
 
     expect(
       await recommendProcessingFee(
-        CHAIN_MAINNET,
-        CHAIN_TKO,
+        mainnetChain,
+        taikoChain,
         null,
-        ETH,
-        get(signer)
-      )
-    ).toStrictEqual("0");
+        ETHToken,
+        get(signer),
+      ),
+    ).toEqual('0');
 
     expect(
       await recommendProcessingFee(
-        CHAIN_TKO,
-        CHAIN_MAINNET,
+        taikoChain,
+        mainnetChain,
         ProcessingFeeMethod.RECOMMENDED,
         null,
-        get(signer)
-      )
-    ).toStrictEqual("0");
+        get(signer),
+      ),
+    ).toEqual('0');
 
     expect(
       await recommendProcessingFee(
-        CHAIN_TKO,
-        CHAIN_MAINNET,
+        taikoChain,
+        mainnetChain,
         ProcessingFeeMethod.RECOMMENDED,
-        ETH,
-        null
-      )
-    ).toStrictEqual("0");
+        ETHToken,
+        null,
+      ),
+    ).toEqual('0');
   });
 
-  it("uses ethGasLimit if the token is ETH", async () => {
-    mockGet.mockImplementationOnce(() =>
-      new Map<number, ethers.providers.JsonRpcProvider>().set(
-        CHAIN_TKO.id,
-        mockProvider as unknown as ethers.providers.JsonRpcProvider
-      )
-    );
-
+  it('uses ethGasLimit if the token is ETH', async () => {
     const fee = await recommendProcessingFee(
-      CHAIN_TKO,
-      CHAIN_MAINNET,
+      taikoChain,
+      mainnetChain,
       ProcessingFeeMethod.RECOMMENDED,
-      ETH,
-      mockSigner as unknown as Signer
+      ETHToken,
+      mockSigner,
     );
 
     const expected = ethers.utils.formatEther(
-      BigNumber.from(gasPrice).mul(ethGasLimit)
+      BigNumber.from(gasPrice).mul(ethGasLimit),
     );
 
     expect(fee).toStrictEqual(expected);
   });
 
-  it("uses erc20NotDeployedGasLimit if the token is not ETH and token is not deployed on dest layer", async () => {
-    mockGet.mockImplementation((store: any) => {
-      if (typeof store === typeof chainIdToTokenVaultAddress) {
-        return new Map<number, string>().set(CHAIN_MAINNET.id, "0x12345");
-      } else {
-        return new Map<number, ethers.providers.JsonRpcProvider>().set(
-          CHAIN_TKO.id,
-          mockProvider as unknown as ethers.providers.JsonRpcProvider
-        );
-      }
-    });
+  it('uses erc20NotDeployedGasLimit if the token is not ETH and token is not deployed on dest layer', async () => {
     mockContract.canonicalToBridged.mockImplementationOnce(
-      () => ethers.constants.AddressZero
+      () => ethers.constants.AddressZero,
     );
 
     const fee = await recommendProcessingFee(
-      CHAIN_TKO,
-      CHAIN_MAINNET,
+      taikoChain,
+      mainnetChain,
       ProcessingFeeMethod.RECOMMENDED,
-      TEST_ERC20,
-      mockSigner as unknown as Signer
+      testERC20Tokens[0],
+      mockSigner,
     );
 
     const expected = ethers.utils.formatEther(
-      BigNumber.from(gasPrice).mul(erc20NotDeployedGasLimit)
+      BigNumber.from(gasPrice).mul(erc20NotDeployedGasLimit),
     );
 
     expect(fee).toStrictEqual(expected);
   });
 
-  it("uses erc20NotDeployedGasLimit if the token is not ETH and token is not deployed on dest layer", async () => {
-    mockGet.mockImplementation((store: any) => {
-      if (typeof store === typeof chainIdToTokenVaultAddress) {
-        return new Map<number, string>().set(CHAIN_MAINNET.id, "0x12345");
-      } else {
-        return new Map<number, ethers.providers.JsonRpcProvider>().set(
-          CHAIN_TKO.id,
-          mockProvider as unknown as ethers.providers.JsonRpcProvider
-        );
-      }
-    });
-
-    mockContract.canonicalToBridged.mockImplementationOnce(() => "0x123");
+  it('uses erc20DeployedGasLimit if the token is not ETH and token is already deployed on dest layer', async () => {
+    mockContract.canonicalToBridged.mockImplementationOnce(() => '0x123');
 
     const fee = await recommendProcessingFee(
-      CHAIN_TKO,
-      CHAIN_MAINNET,
+      taikoChain,
+      mainnetChain,
       ProcessingFeeMethod.RECOMMENDED,
-      TEST_ERC20,
-      mockSigner as unknown as Signer
+      testERC20Tokens[0],
+      mockSigner,
     );
 
     const expected = ethers.utils.formatEther(
-      BigNumber.from(gasPrice).mul(erc20DeployedGasLimit)
+      BigNumber.from(gasPrice).mul(erc20DeployedGasLimit),
     );
 
     expect(fee).toStrictEqual(expected);
+  });
+
+  it('uses destination token address', async () => {
+    await recommendProcessingFee(
+      taikoChain,
+      mainnetChain,
+      ProcessingFeeMethod.RECOMMENDED,
+      mockToken,
+      mockSigner,
+    );
+
+    expect(mockContract.canonicalToBridged).toHaveBeenCalledWith(
+      taikoChain.id,
+      mockToken.addresses[L2_CHAIN_ID],
+    );
+  });
+
+  it('throws on canonicalToBridged call', async () => {
+    mockContract.canonicalToBridged.mockRejectedValue(new Error('BAM!!'));
+
+    await expect(
+      recommendProcessingFee(
+        taikoChain,
+        mainnetChain,
+        ProcessingFeeMethod.RECOMMENDED,
+        testERC20Tokens[0],
+        mockSigner,
+      ),
+    ).rejects.toThrowError('failed to get bridged address');
   });
 });

@@ -3,13 +3,16 @@ package relayer
 import (
 	"context"
 	"math/big"
+	"net/http"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/morkid/paginate"
 	"gorm.io/datatypes"
 )
 
 var (
-	EventNameMessageSent = "MessageSent"
+	EventNameMessageSent          = "MessageSent"
+	EventNameMessageStatusChanged = "MessageStatusChanged"
 )
 
 // EventStatus is used to indicate whether processing has been attempted
@@ -20,6 +23,7 @@ const (
 	EventStatusNew EventStatus = iota
 	EventStatusRetriable
 	EventStatusDone
+	EventStatusFailed
 	EventStatusNewOnlyOwner
 )
 
@@ -32,7 +36,7 @@ const (
 
 // String returns string representation of an event status for logging
 func (e EventStatus) String() string {
-	return [...]string{"new", "retriable", "done", "onlyOwner"}[e]
+	return [...]string{"new", "retriable", "done", "failed", "onlyOwner"}[e]
 }
 
 func (e EventType) String() string {
@@ -54,6 +58,9 @@ type Event struct {
 	CanonicalTokenName     string         `json:"canonicalTokenName"`
 	CanonicalTokenDecimals uint8          `json:"canonicalTokenDecimals"`
 	Amount                 string         `json:"amount"`
+	MsgHash                string         `json:"msgHash"`
+	MessageOwner           string         `json:"messageOwner"`
+	Event                  string         `json:"event"`
 }
 
 // SaveEventOpts
@@ -68,19 +75,36 @@ type SaveEventOpts struct {
 	CanonicalTokenName     string
 	CanonicalTokenDecimals uint8
 	Amount                 string
+	MsgHash                string
+	MessageOwner           string
+	Event                  string
+}
+
+type FindAllByAddressOpts struct {
+	Address   common.Address
+	EventType *EventType
+	Event     *string
+	MsgHash   *string
+	ChainID   *big.Int
 }
 
 // EventRepository is used to interact with events in the store
 type EventRepository interface {
 	Save(ctx context.Context, opts SaveEventOpts) (*Event, error)
 	UpdateStatus(ctx context.Context, id int, status EventStatus) error
-	FindAllByAddressAndChainID(
-		ctx context.Context,
-		chainID *big.Int,
-		address common.Address,
-	) ([]*Event, error)
 	FindAllByAddress(
 		ctx context.Context,
-		address common.Address,
-	) ([]*Event, error)
+		req *http.Request,
+		opts FindAllByAddressOpts,
+	) (paginate.Page, error)
+	FirstByMsgHash(
+		ctx context.Context,
+		msgHash string,
+	) (*Event, error)
+	FirstByEventAndMsgHash(
+		ctx context.Context,
+		event string,
+		msgHash string,
+	) (*Event, error)
+	Delete(ctx context.Context, id int) error
 }

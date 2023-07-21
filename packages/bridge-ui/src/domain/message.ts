@@ -1,18 +1,19 @@
-import type { BigNumber } from "ethers";
+import type { BigNumber } from 'ethers';
 
-enum MessageStatus {
+import type { ChainID } from './chain';
+
+export enum MessageStatus {
   New,
   Retriable,
   Done,
   Failed,
-  FailedReleased
 }
 
-type Message = {
+export type Message = {
   id: number;
   sender: string;
-  srcChainId: BigNumber;
-  destChainId: BigNumber;
+  srcChainId: ChainID;
+  destChainId: ChainID;
   owner: string;
   to: string;
   refundAddress: string;
@@ -23,5 +24,3 @@ type Message = {
   data: string;
   memo: string;
 };
-
-export { Message, MessageStatus };

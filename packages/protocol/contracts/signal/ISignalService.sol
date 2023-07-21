@@ -4,7 +4,7 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 interface ISignalService {
     /**
@@ -13,7 +13,9 @@ interface ISignalService {
      * @param signal The signal to send.
      * @return storageSlot The slot in storage that this signal is persisted.
      */
-    function sendSignal(bytes32 signal) external returns (bytes32 storageSlot);
+    function sendSignal(bytes32 signal)
+        external
+        returns (bytes32 storageSlot);
 
     /**
      * Check if a signal has been sent (key stored with a value of 1).
@@ -24,7 +26,10 @@ interface ISignalService {
     function isSignalSent(
         address app,
         bytes32 signal
-    ) external view returns (bool);
+    )
+        external
+        view
+        returns (bool);
 
     /**
      * Check if signal has been received on the destination chain (current).
@@ -39,5 +44,8 @@ interface ISignalService {
         address app,
         bytes32 signal,
         bytes calldata proof
-    ) external view returns (bool);
+    )
+        external
+        view
+        returns (bool);
 }

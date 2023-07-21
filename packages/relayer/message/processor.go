@@ -3,6 +3,7 @@ package message
 import (
 	"context"
 	"crypto/ecdsa"
+	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +18,10 @@ type ethClient interface {
 	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	BlockNumber(ctx context.Context) (uint64, error)
 	HeaderByHash(ctx context.Context, hash common.Hash) (*types.Header, error)
+	SuggestGasPrice(ctx context.Context) (*big.Int, error)
+	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
 }
+
 type Processor struct {
 	eventRepo     relayer.EventRepository
 	srcEthClient  ethClient
@@ -27,6 +31,7 @@ type Processor struct {
 
 	destBridge       relayer.Bridge
 	destHeaderSyncer relayer.HeaderSyncer
+	destTokenVault   relayer.TokenVault
 
 	prover *proof.Prover
 
@@ -39,22 +44,26 @@ type Processor struct {
 
 	profitableOnly            relayer.ProfitableOnly
 	headerSyncIntervalSeconds int64
+
+	confTimeoutInSeconds int64
 }
 
 type NewProcessorOpts struct {
-	Prover                    *proof.Prover
-	ECDSAKey                  *ecdsa.PrivateKey
-	RPCClient                 relayer.Caller
-	SrcETHClient              ethClient
-	DestETHClient             ethClient
-	DestBridge                relayer.Bridge
-	EventRepo                 relayer.EventRepository
-	DestHeaderSyncer          relayer.HeaderSyncer
-	RelayerAddress            common.Address
-	SrcSignalServiceAddress   common.Address
-	Confirmations             uint64
-	ProfitableOnly            relayer.ProfitableOnly
-	HeaderSyncIntervalSeconds int64
+	Prover                        *proof.Prover
+	ECDSAKey                      *ecdsa.PrivateKey
+	RPCClient                     relayer.Caller
+	SrcETHClient                  ethClient
+	DestETHClient                 ethClient
+	DestBridge                    relayer.Bridge
+	EventRepo                     relayer.EventRepository
+	DestHeaderSyncer              relayer.HeaderSyncer
+	DestTokenVault                relayer.TokenVault
+	RelayerAddress                common.Address
+	SrcSignalServiceAddress       common.Address
+	Confirmations                 uint64
+	ProfitableOnly                relayer.ProfitableOnly
+	HeaderSyncIntervalSeconds     int64
+	ConfirmationsTimeoutInSeconds int64
 }
 
 func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
@@ -94,6 +103,10 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		return nil, relayer.ErrInvalidConfirmations
 	}
 
+	if opts.ConfirmationsTimeoutInSeconds == 0 {
+		return nil, relayer.ErrInvalidConfirmationsTimeoutInSeconds
+	}
+
 	return &Processor{
 		eventRepo: opts.EventRepo,
 		prover:    opts.Prover,
@@ -105,6 +118,7 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 		destEthClient:    opts.DestETHClient,
 		destBridge:       opts.DestBridge,
 		destHeaderSyncer: opts.DestHeaderSyncer,
+		destTokenVault:   opts.DestTokenVault,
 
 		mu: &sync.Mutex{},
 
@@ -115,5 +129,6 @@ func NewProcessor(opts NewProcessorOpts) (*Processor, error) {
 
 		profitableOnly:            opts.ProfitableOnly,
 		headerSyncIntervalSeconds: opts.HeaderSyncIntervalSeconds,
+		confTimeoutInSeconds:      opts.ConfirmationsTimeoutInSeconds,
 	}, nil
 }

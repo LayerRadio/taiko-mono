@@ -4,9 +4,9 @@
 //   | |/ _` | | / / _ \ | |__/ _` | '_ (_-<
 //   |_|\__,_|_|_\_\___/ |____\__,_|_.__/__/
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
-import {LibRLPWriter} from "../thirdparty/LibRLPWriter.sol";
+import { LibRLPWriter } from "../thirdparty/LibRLPWriter.sol";
 
 struct BlockHeader {
     bytes32 parentHash;
@@ -25,31 +25,40 @@ struct BlockHeader {
     bytes32 mixHash;
     uint64 nonce;
     uint256 baseFeePerGas;
+    bytes32 withdrawalsRoot;
 }
 
 library LibBlockHeader {
-    bytes32 private constant EMPTY_OMMERS_HASH =
+    bytes32 public constant EMPTY_OMMERS_HASH =
         0x1dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347;
 
-    function hashBlockHeader(
-        BlockHeader memory header
-    ) internal pure returns (bytes32) {
-        bytes memory rlpHeader = LibRLPWriter.writeList(
-            getBlockHeaderRLPItemsList(header, 0)
-        );
+    function hashBlockHeader(BlockHeader memory header)
+        internal
+        pure
+        returns (bytes32)
+    {
+        bytes memory rlpHeader =
+            LibRLPWriter.writeList(getBlockHeaderRLPItemsList(header, 0));
         return keccak256(rlpHeader);
     }
 
     function getBlockHeaderRLPItemsList(
         BlockHeader memory header,
         uint256 extraCapacity
-    ) internal pure returns (bytes[] memory list) {
-        if (header.baseFeePerGas == 0) {
-            // non-EIP11559 transaction
-            list = new bytes[](15 + extraCapacity);
-        } else {
-            // EIP1159 transaction
+    )
+        internal
+        pure
+        returns (bytes[] memory list)
+    {
+        if (header.withdrawalsRoot != 0) {
+            // EIP-4895 transaction
+            list = new bytes[](17 + extraCapacity);
+        } else if (header.baseFeePerGas != 0) {
+            // EIP-1559 transaction
             list = new bytes[](16 + extraCapacity);
+        } else {
+            // non-EIP-1559 transaction
+            list = new bytes[](15 + extraCapacity);
         }
         list[0] = LibRLPWriter.writeHash(header.parentHash);
         list[1] = LibRLPWriter.writeHash(header.ommersHash);
@@ -69,21 +78,12 @@ library LibBlockHeader {
         // as [8]byte when hashing the block.
         list[14] = LibRLPWriter.writeBytes(abi.encodePacked(header.nonce));
         if (header.baseFeePerGas != 0) {
-            // non-EIP11559 transaction
+            // EIP-1559 transaction
             list[15] = LibRLPWriter.writeUint(header.baseFeePerGas);
         }
-    }
-
-    function isPartiallyValidForTaiko(
-        uint256 blockMaxGasLimit,
-        BlockHeader calldata header
-    ) internal pure returns (bool) {
-        return
-            header.parentHash != 0 &&
-            header.ommersHash == EMPTY_OMMERS_HASH &&
-            header.gasLimit <= blockMaxGasLimit &&
-            header.extraData.length <= 32 &&
-            header.difficulty == 0 &&
-            header.nonce == 0;
+        if (header.withdrawalsRoot != 0) {
+            // EIP-4895 transaction
+            list[16] = LibRLPWriter.writeHash(header.withdrawalsRoot);
+        }
     }
 }

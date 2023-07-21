@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.18;
+pragma solidity ^0.8.20;
 
 /* Library Imports */
-import {LibSecureMerkleTrie} from "../../thirdparty/LibSecureMerkleTrie.sol";
+import { LibSecureMerkleTrie } from "../../thirdparty/LibSecureMerkleTrie.sol";
 
 /**
  * @title TestLibSecureMerkleTrie
@@ -14,21 +14,25 @@ contract TestLibSecureMerkleTrie {
         bytes memory _value,
         bytes memory _proof,
         bytes32 _root
-    ) public pure returns (bool) {
-        return
-            LibSecureMerkleTrie.verifyInclusionProof(
-                _key,
-                _value,
-                _proof,
-                _root
-            );
+    )
+        public
+        pure
+        returns (bool)
+    {
+        return LibSecureMerkleTrie.verifyInclusionProof(
+            _key, _value, _proof, _root
+        );
     }
 
     function get(
         bytes memory _key,
         bytes memory _proof,
         bytes32 _root
-    ) public pure returns (bool, bytes memory) {
+    )
+        public
+        pure
+        returns (bool, bytes memory)
+    {
         return LibSecureMerkleTrie.get(_key, _proof, _root);
     }
 }

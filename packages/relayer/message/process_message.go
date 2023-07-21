@@ -3,7 +3,12 @@ package message
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
+	"math/big"
+	"strings"
+	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -38,7 +43,7 @@ func (p *Processor) ProcessMessage(
 
 	// get latest synced header since not every header is synced from L1 => L2,
 	// and later blocks still have the storage trie proof from previous blocks.
-	latestSyncedHeader, err := p.destHeaderSyncer.GetLatestSyncedHeader(&bind.CallOpts{})
+	latestSyncedHeader, err := p.destHeaderSyncer.GetCrossChainBlockHash(&bind.CallOpts{}, big.NewInt(0))
 	if err != nil {
 		return errors.Wrap(err, "taiko.GetSyncedHeader")
 	}
@@ -52,12 +57,13 @@ func (p *Processor) ProcessMessage(
 
 	encodedSignalProof, err := p.prover.EncodedSignalProof(ctx, p.rpc, p.srcSignalServiceAddress, key, latestSyncedHeader)
 	if err != nil {
-		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v",
+		log.Errorf("srcChainID: %v, destChainID: %v, txHash: %v: msgHash: %v, from: %v encountered signalProofError %v",
 			event.Message.SrcChainId,
 			event.Message.DestChainId,
 			event.Raw.TxHash.Hex(),
 			common.Hash(event.MsgHash).Hex(),
 			event.Message.Owner.Hex(),
+			err,
 		)
 
 		return errors.Wrap(err, "p.prover.GetEncodedSignalProof")
@@ -75,7 +81,15 @@ func (p *Processor) ProcessMessage(
 
 	// message will fail when we try to process it
 	if !received {
-		log.Warnf("msgHash %v not received on dest chain", common.Hash(event.MsgHash).Hex())
+		log.Warnf(
+			"msgHash: %v, srcChainId: %v, encodedSignalProof: %v not received on dest chain",
+			common.Hash(event.MsgHash).Hex(),
+			event.Message.SrcChainId,
+			hex.EncodeToString(encodedSignalProof),
+		)
+
+		relayer.MessagesNotReceivedOnDestChain.Inc()
+
 		return errors.New("message not received")
 	}
 
@@ -84,11 +98,19 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.sendProcessMessageCall")
 	}
 
-	log.Infof("waiting for tx hash %v", hex.EncodeToString(tx.Hash().Bytes()))
+	relayer.EventsProcessed.Inc()
 
-	_, err = relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
+	ctx, cancel := context.WithTimeout(ctx, 4*time.Minute)
+
+	defer cancel()
+
+	receipt, err := relayer.WaitReceipt(ctx, p.destEthClient, tx.Hash())
 	if err != nil {
 		return errors.Wrap(err, "relayer.WaitReceipt")
+	}
+
+	if err := p.saveMessageStatusChangedEvent(ctx, receipt, e, event); err != nil {
+		return errors.Wrap(err, "p.saveMEssageStatusChangedEvent")
 	}
 
 	log.Infof("Mined tx %s", hex.EncodeToString(tx.Hash().Bytes()))
@@ -98,7 +120,18 @@ func (p *Processor) ProcessMessage(
 		return errors.Wrap(err, "p.destBridge.GetMessageStatus")
 	}
 
-	log.Infof("updating message status to: %v", relayer.EventStatus(messageStatus).String())
+	log.Infof(
+		"updating message status to: %v for txHash: %v, processed in txHash: %v",
+		relayer.EventStatus(messageStatus).String(),
+		event.Raw.TxHash.Hex(),
+		hex.EncodeToString(tx.Hash().Bytes()),
+	)
+
+	if messageStatus == uint8(relayer.EventStatusRetriable) {
+		relayer.RetriableEvents.Inc()
+	} else if messageStatus == uint8(relayer.EventStatusDone) {
+		relayer.DoneEvents.Inc()
+	}
 
 	// update message status
 	if err := p.eventRepo.UpdateStatus(ctx, e.ID, relayer.EventStatus(messageStatus)); err != nil {
@@ -128,17 +161,71 @@ func (p *Processor) sendProcessMessageCall(
 		return nil, errors.New("p.getLatestNonce")
 	}
 
-	profitable, gas, err := p.isProfitable(ctx, event.Message, proof)
+	eventType, canonicalToken, _, err := relayer.DecodeMessageSentData(event)
 	if err != nil {
-		return nil, errors.Wrap(err, "p.isProfitable")
+		return nil, errors.Wrap(err, "relayer.DecodeMessageSentData")
 	}
 
-	if bool(p.profitableOnly) && !profitable {
-		return nil, relayer.ErrUnprofitable
+	var gas uint64
+
+	var cost *big.Int
+
+	var needsContractDeployment bool = false
+	// node is unable to estimate gas correctly for contract deployments, we need to check if the token
+	// is deployed, and always hardcode in this case. we need to check this before calling
+	// estimategas, as the node will soemtimes return a gas estimate for a contract deployment, however,
+	// it is incorrect and the tx will revert.
+	if eventType == relayer.EventTypeSendERC20 && event.Message.DestChainId.Cmp(canonicalToken.ChainId) != 0 {
+		// determine whether the canonical token is bridged or not on this chain
+		bridgedAddress, err := p.destTokenVault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		if err != nil {
+			return nil, errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
+		}
+
+		if bridgedAddress == relayer.ZeroAddress {
+			// needs large gas limit because it has to deploy an ERC20 contract on destination
+			// chain. deploying ERC20 can be 2 mil by itself. we want to skip estimating gas entirely
+			// in this scenario.
+			needsContractDeployment = true
+		}
 	}
 
-	if gas != 0 {
-		auth.GasLimit = gas
+	if needsContractDeployment {
+		auth.GasLimit = 3000000
+	} else {
+		// otherwise we can estimate gas
+		gas, cost, err = p.estimateGas(ctx, event.Message, proof)
+		// and if gas estimation failed, we just try to hardcore a value no matter what type of event,
+		// or whether the contract is deployed.
+		if err != nil || gas == 0 {
+			cost, err = p.hardcodeGasLimit(ctx, auth, event, eventType, canonicalToken)
+			if err != nil {
+				return nil, errors.Wrap(err, "p.hardcodeGasLimit")
+			}
+		}
+	}
+
+	gasTipCap, err := p.destEthClient.SuggestGasTipCap(ctx)
+	if err != nil {
+		if IsMaxPriorityFeePerGasNotFoundError(err) {
+			auth.GasTipCap = FallbackGasTipCap
+		} else {
+			gasPrice, err := p.destEthClient.SuggestGasPrice(context.Background())
+			if err != nil {
+				return nil, errors.Wrap(err, "p.destBridge.SuggestGasPrice")
+			}
+
+			auth.GasPrice = gasPrice
+		}
+	} else {
+		auth.GasTipCap = gasTipCap
+	}
+
+	if bool(p.profitableOnly) {
+		profitable, err := p.isProfitable(ctx, event.Message, cost)
+		if err != nil || !profitable {
+			return nil, relayer.ErrUnprofitable
+		}
 	}
 
 	// process the message on the destination bridge.
@@ -152,6 +239,94 @@ func (p *Processor) sendProcessMessageCall(
 	return tx, nil
 }
 
+// hardcodeGasLimit determines a viable gas limit when we can get
+// unable to estimate gas for contract deployments within the contract code.
+// if we get an error or the gas is 0, lets manual set high gas limit and ignore error,
+// and try to actually send.
+// if contract has not been deployed, we need much higher gas limit, otherwise, we can
+// send lower.
+func (p *Processor) hardcodeGasLimit(
+	ctx context.Context,
+	auth *bind.TransactOpts,
+	event *bridge.BridgeMessageSent,
+	eventType relayer.EventType,
+	canonicalToken *relayer.CanonicalToken,
+) (*big.Int, error) {
+	if eventType == relayer.EventTypeSendETH {
+		// eth bridges take much less gas, from 250k to 450k.
+		auth.GasLimit = 500000
+	} else {
+		// determine whether the canonical token is bridged or not on this chain
+		bridgedAddress, err := p.destTokenVault.CanonicalToBridged(nil, canonicalToken.ChainId, canonicalToken.Addr)
+		if err != nil {
+			return nil, errors.Wrap(err, "p.destTokenVault.IsBridgedToken")
+		}
+
+		if bridgedAddress == relayer.ZeroAddress {
+			// needs large gas limit because it has to deploy an ERC20 contract on destination
+			// chain. deploying ERC20 can be 2 mil by itself.
+			auth.GasLimit = 3000000
+		} else {
+			// needs larger than ETH gas limit but not as much as deploying ERC20.
+			// takes 450-550k gas after signalRoot refactors.
+			auth.GasLimit = 600000
+		}
+	}
+
+	gasPrice, err := p.destEthClient.SuggestGasPrice(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "p.destEthClient.SuggestGasPrice")
+	}
+
+	return new(big.Int).Mul(gasPrice, new(big.Int).SetUint64(auth.GasLimit)), nil
+}
+
 func (p *Processor) setLatestNonce(nonce uint64) {
 	p.destNonce = nonce
+}
+
+func (p *Processor) saveMessageStatusChangedEvent(
+	ctx context.Context,
+	receipt *types.Receipt,
+	e *relayer.Event,
+	event *bridge.BridgeMessageSent,
+) error {
+	bridgeAbi, err := abi.JSON(strings.NewReader(bridge.BridgeABI))
+	if err != nil {
+		return errors.Wrap(err, "abi.JSON")
+	}
+
+	m := make(map[string]interface{})
+
+	for _, log := range receipt.Logs {
+		topic := log.Topics[0]
+		if topic == bridgeAbi.Events["MessageStatusChanged"].ID {
+			err = bridgeAbi.UnpackIntoMap(m, "MessageStatusChanged", log.Data)
+			if err != nil {
+				return errors.Wrap(err, "abi.UnpackIntoInterface")
+			}
+
+			break
+		}
+	}
+
+	if m["status"] != nil {
+		// keep same format as other raw events
+		data := fmt.Sprintf(`{"Raw":{"transactionHash": "%v"}}`, receipt.TxHash.Hex())
+
+		_, err = p.eventRepo.Save(ctx, relayer.SaveEventOpts{
+			Name:         relayer.EventNameMessageStatusChanged,
+			Data:         data,
+			ChainID:      event.Message.DestChainId,
+			Status:       relayer.EventStatus(m["status"].(uint8)),
+			MsgHash:      e.MsgHash,
+			MessageOwner: e.MessageOwner,
+			Event:        relayer.EventNameMessageStatusChanged,
+		})
+		if err != nil {
+			return errors.Wrap(err, "svc.eventRepo.Save")
+		}
+	}
+
+	return nil
 }
