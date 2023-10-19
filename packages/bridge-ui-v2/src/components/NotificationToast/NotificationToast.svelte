@@ -1,37 +1,64 @@
 <script lang="ts" context="module">
   import { toast } from '@zerodevx/svelte-toast';
 
+  import { toastConfig } from '$config';
   import { uid } from '$libs/util/uid';
 
   import ItemToast from './ItemToast.svelte';
   import type { TypeToast } from './types';
 
-  // Public API
+  export type NotificationType = {
+    title: string;
+    message?: string;
+    type?: TypeToast;
+    closeManually?: boolean;
+  };
 
-  export function notify(message: string, type: TypeToast = 'unknown', closeManually = false) {
+  export function notify(notificationType: NotificationType) {
     const id = Number(uid());
     const close = () => toast.pop(id);
+    const { title, message, type = 'unknown', closeManually = false } = notificationType;
 
     toast.push({
       id,
       ...(closeManually ? { initial: 0 } : {}),
       component: {
         src: ItemToast,
-        props: { type, message, close },
+        props: { type, title, message, close },
       },
     });
   }
 
-  export function successToast(message: string, closeManually = false) {
-    notify(message, 'success', closeManually);
+  export function successToast(notificationType: NotificationType) {
+    notify({
+      ...notificationType,
+      type: 'success',
+      closeManually: false
+    });
   }
 
-  export function errorToast(message: string, closeManually = true) {
-    notify(message, 'error', closeManually);
+  export function errorToast(notificationType: NotificationType) {
+    notify({
+      ...notificationType,
+      type: 'error',
+      closeManually: true
+    });
   }
 
-  export function warningToast(message: string, closeManually = false) {
-    notify(message, 'warning', closeManually);
+  export function warningToast(notificationType: NotificationType) {
+    notify({
+      ...notificationType,
+      type: 'warning',
+      closeManually: false
+    });
+  }
+
+  export function infoToast(notificationType: NotificationType) {
+    notify({
+      ...notificationType,
+      type: 'info',
+      closeManually: false
+    });
   }
 </script>
 
@@ -40,7 +67,7 @@
   import type { SvelteToastOptions } from '@zerodevx/svelte-toast/stores';
 
   const options: SvelteToastOptions = {
-    duration: 5000, // TODO: config file?
+    duration: toastConfig.duration,
     pausable: false,
   };
 </script>
@@ -55,7 +82,8 @@
     --toastContainerBottom: auto;
     --toastContainerTop: 77px;
     --toastContainerLeft: calc(50vw - 160px);
-    --toastWidth: 320px;
+    --toastBoxShadow: none;
+    --toastWidth: 339px;
 
     /*
       We need to makes the surroundings dissapear in order

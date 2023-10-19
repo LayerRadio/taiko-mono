@@ -1,5 +1,62 @@
 # Changelog
 
+## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.11.0...relayer-v0.12.0) (2023-10-18)
+
+
+### Features
+
+* **eventindexer:** API documentation, swagger, github pages ([#14948](https://github.com/taikoxyz/taiko-mono/issues/14948)) ([5455267](https://github.com/taikoxyz/taiko-mono/commit/54552674fe8a6b0b4321afe1ef4d90d00d62f0e8))
+
+
+### Bug Fixes
+
+* **eventindexer:** update config tests ([#14912](https://github.com/taikoxyz/taiko-mono/issues/14912)) ([beab49b](https://github.com/taikoxyz/taiko-mono/commit/beab49bd8f085b1e285fb3a16e9b493f3c5f5932))
+* **relayer:** ERC1155 bridging, amount =&gt; amounts ([#14959](https://github.com/taikoxyz/taiko-mono/issues/14959)) ([d42c59d](https://github.com/taikoxyz/taiko-mono/commit/d42c59d5150c9c41941458e25fac75121d73da76))
+
+## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.10.0...relayer-v0.11.0) (2023-09-25)
+
+
+### Features
+
+* **eventindexer:** Track proposer/prover rewards, + generate tasks for total/per day ([#14690](https://github.com/taikoxyz/taiko-mono/issues/14690)) ([cc477b9](https://github.com/taikoxyz/taiko-mono/commit/cc477b97c00e8339a87c4d4502a0ee8ad811c10f))
+* **relayer:** fix cost calculation for isProfitable ([#14767](https://github.com/taikoxyz/taiko-mono/issues/14767)) ([8e1c897](https://github.com/taikoxyz/taiko-mono/commit/8e1c89748fcb42e354d2219ceac2be1c668bcf31))
+* **relayer:** queue processor Prefetch ([#14765](https://github.com/taikoxyz/taiko-mono/issues/14765)) ([a37797a](https://github.com/taikoxyz/taiko-mono/commit/a37797a6115fda37e933b0742881649a411a29ef))
+* **relayer:** Relayer indexer/processor separation and refactor, messaging queue ([#14605](https://github.com/taikoxyz/taiko-mono/issues/14605)) ([15b0e50](https://github.com/taikoxyz/taiko-mono/commit/15b0e50c130687cac32eef97ba5f396f79ad933f))
+* **relayer:** support L2-L2 bridging ([#14711](https://github.com/taikoxyz/taiko-mono/issues/14711)) ([1410217](https://github.com/taikoxyz/taiko-mono/commit/1410217363077ea6179080fca4a7aeadc6c7d149))
+
+
+### Bug Fixes
+
+* **relayer:** Relayer cors flag was not being used ([#14661](https://github.com/taikoxyz/taiko-mono/issues/14661)) ([19f35f7](https://github.com/taikoxyz/taiko-mono/commit/19f35f74e8a955c2776defe6e5cac48a9b6456a3))
+* **relayer:** Relayer paid gas ([#14748](https://github.com/taikoxyz/taiko-mono/issues/14748)) ([b4cb3ff](https://github.com/taikoxyz/taiko-mono/commit/b4cb3ffe9d4bad67682a8217621b8b67cb263f65))
+
+## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.9.1...relayer-v0.10.0) (2023-09-05)
+
+
+### Features
+
+* **eventindexer:** Eventindexer and relayer a5 updates ([#14597](https://github.com/taikoxyz/taiko-mono/issues/14597)) ([87c9d53](https://github.com/taikoxyz/taiko-mono/commit/87c9d53fa9c6911aada78a1746839d14e4401916))
+
+
+### Bug Fixes
+
+* **relayer:** Eth bridge ([#14609](https://github.com/taikoxyz/taiko-mono/issues/14609)) ([f5207ae](https://github.com/taikoxyz/taiko-mono/commit/f5207ae19c48d9aaa83dab2739cd05d9c2985112))
+
+## [0.9.1](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.9.0...relayer-v0.9.1) (2023-08-22)
+
+
+### Bug Fixes
+
+* **relayer:** use erc20vault not token vault for required end var ([#14519](https://github.com/taikoxyz/taiko-mono/issues/14519)) ([a49c65c](https://github.com/taikoxyz/taiko-mono/commit/a49c65c6ba9535a761f4ef2abd7be2b2213a71c2))
+
+## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.8.0...relayer-v0.9.0) (2023-08-15)
+
+
+### Features
+
+* **eventindexer:** Index nfts ([#14418](https://github.com/taikoxyz/taiko-mono/issues/14418)) ([364b09b](https://github.com/taikoxyz/taiko-mono/commit/364b09b52344dff8782be7333eac4fdb3e5d1597))
+* **protocol:** alpha-4 with staking-based tokenomics ([#14065](https://github.com/taikoxyz/taiko-mono/issues/14065)) ([1eeba9d](https://github.com/taikoxyz/taiko-mono/commit/1eeba9d97ed8e6e4a8d07a8b0af163a16fbc9ccf))
+
 ## [0.8.0](https://github.com/taikoxyz/taiko-mono/compare/relayer-v0.7.0...relayer-v0.8.0) (2023-06-26)
 
 

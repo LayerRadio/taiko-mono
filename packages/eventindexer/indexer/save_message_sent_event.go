@@ -4,38 +4,34 @@ import (
 	"context"
 	"encoding/json"
 	"math/big"
+	"time"
 
-	"github.com/ethereum/go-ethereum/common"
+	"log/slog"
+
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/bridge"
 )
 
-var (
-	minEthAmount = new(big.Int).SetUint64(150000000000000000)
-	zeroHash     = common.HexToHash("0x0000000000000000000000000000000000000000000000000000000000000000")
-)
-
-func (svc *Service) saveMessageSentEvents(
+func (indxr *Indexer) saveMessageSentEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *bridge.BridgeMessageSentIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no MessageSent events")
+		slog.Info("no MessageSent events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		log.Infof("new messageSent event for owner: %v", event.Message.Owner.Hex())
+		slog.Info("new messageSent event", "owner", event.Message.From.Hex())
 
-		if err := svc.saveMessageSentEvent(ctx, chainID, event); err != nil {
+		if err := indxr.saveMessageSentEvent(ctx, chainID, event); err != nil {
 			eventindexer.MessageSentEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveMessageSentEvent")
+			return errors.Wrap(err, "indxr.saveMessageSentEvent")
 		}
 
 		if !events.Next() {
@@ -44,41 +40,31 @@ func (svc *Service) saveMessageSentEvents(
 	}
 }
 
-func (svc *Service) saveMessageSentEvent(
+func (indxr *Indexer) saveMessageSentEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *bridge.BridgeMessageSent,
 ) error {
-	// only save eth transfers
-	if event.Message.Data != nil && common.BytesToHash(event.Message.Data) != zeroHash {
-		log.Info("skipping message sent event, is not eth transfer")
-		return nil
-	}
-
-	// amount must be >= 0.15 eth
-	if event.Message.DepositValue.Cmp(minEthAmount) < 0 {
-		log.Infof("skipping message sent event, value: %v, requiredValue: %v",
-			event.Message.DepositValue.String(),
-			minEthAmount.String(),
-		)
-
-		return nil
-	}
-
 	marshaled, err := json.Marshal(event)
 	if err != nil {
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameMessageSent,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameMessageSent,
-		Address: event.Message.Owner.Hex(),
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameMessageSent,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameMessageSent,
+		Address:      event.Message.From.Hex(),
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.MessageSentEventsProcessed.Inc()

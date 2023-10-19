@@ -2,23 +2,117 @@
   "nav": {
     "bridge": "Bridge",
     "faucet": "Faucet",
-    "activities": "Activities",
+    "transactions": "Transactions",
     "explorer": "Explorer",
-    "guide": "Guide"
+    "theme": "Theme",
+    "guide": "Guide",
+    "nft": "NFT",
+    "token": "Token"
   },
-
   "bridge": {
-    "title": "Bridge",
-    "subtitle": "Send your assets across chains.",
+    "title": {
+      "default": "Bridge Token",
+      "nft": {
+        "import": "Import NFT",
+        "review": "Review",
+        "confirm": "Confirm"
+      }
+    },
+    "description": {
+      "default": "Send your assets across chains.",
+      "nft": {
+        "import": "Transfer your NFTs across chains",
+        "review": "Verify your NFT details.",
+        "confirm": "Confirm your NFT details."
+      }
+    },
+    "nft": {
+      "step": {
+        "import": {
+          "title": "Import NFT",
+          "description": "Import your NFT from the source chain.",
+          "scan_screen": {
+            "title": "Scan for NFT",
+            "description": "Don't see your NFTs? Try adding them manually!"
+          }
+        },
+        "review": {
+          "title": "Import NFT",
+          "description": "Review your NFT details.",
+          "token_id": "Token ID",
+          "your_tokens": "Your tokens on"
+        },
+        "confirm": "Confirm"
+      }
+    },
+    "actions": {
+      "approve": {
+        "tx": {
+          "title": "Approval sent",
+          "message": "Track {token} token approval status on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Approved token",
+          "message": "You can now proceed to bridge {token}."
+        },
+        "rejected": {
+          "title": "Request to approve rejected"
+        }
+      },
+      "bridge": {
+        "tx": {
+          "title": "Transaction sent",
+          "message": "Track the bridge status of your {token} <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Transaction completed",
+          "message": "Your funds are being prepared for claiming on Taiko."
+        }
+      },
+      "nft_scan": "Scan for NFT",
+      "nft_scan_again": "Scan again",
+      "nft_manual": "Add manually"
+    },
+    "errors": {
+      "send_erc20_error": "Failed to send ERC20 token",
+      "send_message_error": "Failed to send message",
+      "approve_error": "Failed to approve token",
+      "rejected": "Request to bridge rejected.",
+      "no_allowance_required": "You already have enough allowance.",
+      "insufficient_balance": "Not enough balance in your wallet for this token.",
+      "insufficient_allowance": "You need to increase your allowance in order to be able to bridge.",
+      "cannot_fetch_balance": "Error fetching balance. Wrong chain?",
+      "bll_token": "BLL has a deliberate ~50% failure rate. Refer to our guide",
+      "unknown_error": "An error occured",
+      "custom_token": {
+        "not_found": "Token not found!",
+        "description": "Are you on the right network?"
+      }
+    },
     "button": {
       "approve": "Approve",
-      "bridge": "Bridge"
+      "approving": "Approving",
+      "approved": "Approved",
+      "bridge": "Bridge",
+      "bridging": "Bridging",
+      "fetch": "Fetch NFT data",
+      "import": "Import"
     }
   },
-
+  "recipient": {
+    "title": "Recipient address",
+    "description": "You can set a custom address as the recipient of your funds, instead of your current wallet address.",
+    "link": "Change recipient",
+    "placeholder": "Add custom recipient 0x…",
+    "tooltip_title": "What is Custom Recipient?",
+    "tooltip": "Defaults to your address. You can add a custom recipient address as well."
+  },
   "processing_fee": {
     "title": "Processing fee",
+    "description": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
     "link": "Customize fee",
+    "tooltip_title": "What is Processing Fee?",
+    "tooltip": "The payment you provide to the relayer for handling your bridge message on the destination chain.",
     "recommended": {
       "label": "Recommended",
       "calculating": "Calculating",
@@ -27,7 +121,7 @@
     "none": {
       "label": "None",
       "text": "Use ETH to manually claim your bridged token later",
-      "warning": "This option cannot be selected. You have not enough ETH to cover the gas fees for claiming."
+      "warning": "Insufficient ETH to cover the gas fees for claiming."
     },
     "custom": {
       "label": "Custom",
@@ -38,13 +132,15 @@
       "cancel": "Cancel"
     }
   },
-
-  "activities": {
-    "title": "Activities",
-    "subtitle": "Track your bridge transactions here.",
+  "transactions": {
+    "title": "Transactions",
+    "description": "Track your bridge transactions here.",
     "header": {
-      "explorer": "Explorer link",
-      "status": "Status"
+      "explorer": "Explorer",
+      "status": "Status",
+      "from": "From",
+      "to": "To",
+      "amount": "Amount"
     },
     "link.explorer": "View details",
     "no_transactions": "No transactions yet",
@@ -54,79 +150,167 @@
       "release": "Release"
     },
     "status": {
-      "initiated": "Initiated",
-      "pending": "Pending",
-      "claimed": "Claimed",
-      "failed": "Failed"
+      "processing": {
+        "name": "Processing",
+        "description": "Transaction is processing. Depending on the pending blocks to be verified this can take up to several minutes."
+      },
+      "pending": {
+        "name": "Pending",
+        "description": " Your asset is not yet eligible for claiming. The bridging process from Taiko to Sepolia may take several hours before becoming claimable. Sepolia to Taiko bridging should be claimable within minutes."
+      },
+      "claim": {
+        "name": "Claim",
+        "description": "Your asset is now ready for claiming on the destination chain and requires a transaction. If you have set a processing fee, the relayer will automatically handle the claiming process on your behalf."
+      },
+      "claiming": "Claiming",
+      "claimed": {
+        "name": "Claimed",
+        "description": "Your asset has successfully completed the bridging process and is now available to you on the destination chain."
+      },
+      "retry": {
+        "name": "Retry",
+        "description": "The relayer was unable to process this message, and you will need to retry the processing yourself."
+      },
+      "release": {
+        "name": "Release",
+        "description": "Your bridged asset cannot be processed and is now accessible to you on the source chain."
+      },
+      "releasing": "Releasing",
+      "failed": {
+        "name": "Failed",
+        "description": "Your bridge transaction was unsuccessful."
+      },
+      "dialog": {
+        "title": "Message status",
+        "description": "The bridge message undergoes different stages:"
+      }
+    },
+    "actions": {
+      "claim": {
+        "tx": {
+          "title": "Transaction sent",
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Transaction completed",
+          "message": "Your funds have been successfully claimed on {network}."
+        },
+        "rejected": {
+          "title": "Request to claim rejected."
+        },
+        "dialog": {
+          "title": "Please wait",
+          "description": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
+          "link": "Go to guide"
+        }
+      },
+      "release": {
+        "tx": {
+          "title": "Transaction sent",
+          "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+        },
+        "success": {
+          "title": "Transaction completed",
+          "message": "Your funds have been released on {network}"
+        },
+        "rejected": {
+          "title": "Request to release rejected."
+        }
+      }
+    },
+    "errors": {
+      "insufficient_balance": "Insufficient balance to claim yourself. Please wait for the relayer to claim for you automatically. Refer to our guide for more information.",
+      "relayer_offline": "Relayer did not respond. Your transactions may only be loaded partially."
     }
   },
-
   "faucet": {
     "title": "Faucet",
-    "subtitle": "Mint test tokens.",
-    "minting_tx": "Transaction sent to mint {token} tokens. Click <a href=\"{url}\" target=\"_blank\"><b>here</b></a> to see it in the explorer.",
+    "description": "Mint test tokens.",
+    "mint": {
+      "tx": {
+        "title": "Transaction sent",
+        "message": "Track the progress on the explorer <a href=\"{url}\" target=\"_blank\"><b>here</b></a>."
+      },
+      "success": {
+        "title": "Token minted successfully",
+        "message": "Check your updated balance on the Bridge page."
+      },
+      "rejected": {
+        "title": "Error minting token",
+        "message": "An error occurred while attempting to mint the token."
+      }
+    },
     "button": {
       "mint": "Mint",
       "checking": "Checking mintability",
       "minting": "Minting"
     },
     "wrong_chain": {
-      "message": "It appears your are on the wrong network. Switch to {network} to mint tokens.",
+      "message": "It appears you are on the wrong network. Switch to {network} to mint tokens.",
       "button": "Switch to {network}"
     },
     "warning": {
       "no_connected": "Please connect your wallet to mint tokens.",
       "insufficient_balance": "You don't have enough ETH to complete the transaction. Please add some ETH to your wallet.",
-      "token_minted": "You have already minted this token."
+      "token_minted": "You have already minted this token.",
+      "not_mintable": "This token is not mintable on this network",
+      "unknown": "Something did not work"
     }
   },
-
   "token_dropdown": {
-    "label": "Select token"
-  },
-
-  "amount_input": {
-    "label": "Amount",
-    "balance": "Balance",
-    "button": {
-      "max": "Max",
-      "failed_max": "Coult not estimate max amount to bridge."
-    },
-    "error": {
-      "insufficient_balance": "Insufficient balance",
-      "insufficient_allowance": "Insufficient allowance"
+    "label": "Select token",
+    "add_custom": "Add Custom",
+    "custom_token": {
+      "title": "Add your own token",
+      "description": "You can add your own token by entering the contract address below. Make sure you are on the chain where the token is deployed.",
+      "button": "Add token"
     }
   },
-
+  "inputs": {
+    "token_id_input": {
+      "label": "Token ID(s)",
+      "placeholder": "1 or 5,14,733",
+      "errors": {
+        "invalid": "Not a valid numeric value"
+      }
+    },
+    "address_input": {
+      "label": {
+        "default": "Address",
+        "contract": "Contract address",
+        "recipient": "Recipient address"
+      },
+      "placeholder": "Enter a valid ethereum address",
+      "errors": {
+        "invalid": "Invalid address format",
+        "too_short": "Address is too short"
+      },
+      "success": "Valid address format"
+    },
+    "amount": {
+      "label": "Amount",
+      "balance": "Balance",
+      "button.max": "Max",
+      "errors.failed_max": "Could not estimate max amount to bridge."
+    }
+  },
   "chain_selector": {
     "placeholder": "Select chain",
-    "currently_on": "You are currently on"
-  },
-
-  "messages": {
-    "account": {
-      "required": "Please connect your wallet.",
-      "connected": "Account connected",
-      "disconnected": "Account disconnected"
-    },
-    "network": {
-      "switching": "Switching network",
-      "rejected": "Request to switch chain rejected."
-    },
-    "mint": {
-      "rejected": "Request to mint rejected."
+    "from_placeholder": "Select Source Chain",
+    "to_placeholder": "Select Destination Chain",
+    "currently_on": "You are currently on",
+    "disabled_options": {
+      "title": "Disabled options?",
+      "description": "Some options might be disabled due to not having a valid bridge configuration"
     }
   },
-
   "chain": {
     "to": "To",
     "from": "From"
   },
-
   "custom_recipient": {
     "placeholder": "Add custom recipient"
   },
-
   "wallet": {
     "connect": "Connect wallet",
     "status": {
@@ -134,5 +318,39 @@
       "connected": "Connected",
       "connecting": "Connecting"
     }
+  },
+  "switch_modal": {
+    "title": "Incorrect network detected",
+    "description": "Your current network is not supported. Please select one of the following chains to proceed:"
+  },
+  "messages": {
+    "account": {
+      "required": "Please connect your wallet.",
+      "connected": "Wallet connected",
+      "disconnected": "Wallet disconnected"
+    },
+    "network": {
+      "switching": "Switching network",
+      "rejected": "Request to switch chain rejected.",
+      "pending": "A network switch is still pending, open your wallet to check the status.",
+      "required": "Source chain must be selected.",
+      "required_dest": "Destination chain must be selected."
+    }
+  },
+  "common": {
+    "edit": "Edit",
+    "continue": "Continue",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "close": "Close",
+    "loading": "Loading",
+    "ok": "Ok",
+    "name": "Name",
+    "balance": "Balance",
+    "destination": "Destination",
+    "contract_address": "Contract address",
+    "id": "ID",
+    "collection": "Collection",
+    "address": "Address"
   }
 }

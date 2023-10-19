@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.13.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.12.0...eventindexer-v0.13.0) (2023-10-18)
+
+
+### Features
+
+* **eventindexer:** API documentation, swagger, github pages ([#14948](https://github.com/taikoxyz/taiko-mono/issues/14948)) ([5455267](https://github.com/taikoxyz/taiko-mono/commit/54552674fe8a6b0b4321afe1ef4d90d00d62f0e8))
+
+
+### Bug Fixes
+
+* **eventindexer:** update config tests ([#14912](https://github.com/taikoxyz/taiko-mono/issues/14912)) ([beab49b](https://github.com/taikoxyz/taiko-mono/commit/beab49bd8f085b1e285fb3a16e9b493f3c5f5932))
+* **eventindexer:** upodate indexnfts flag to bool ([#14905](https://github.com/taikoxyz/taiko-mono/issues/14905)) ([a4a982e](https://github.com/taikoxyz/taiko-mono/commit/a4a982ec15a11f207c5b14c3a0b5fb2caffd2c1b))
+
+## [0.12.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.11.0...eventindexer-v0.12.0) (2023-09-25)
+
+
+### Features
+
+* **eventindexer:** Timeseries data indexing + refactor to taiko-client/relayer CLI approach and architecture ([#14663](https://github.com/taikoxyz/taiko-mono/issues/14663)) ([7e760b6](https://github.com/taikoxyz/taiko-mono/commit/7e760b63022162ccfc0a11a861900d68958e650a))
+* **eventindexer:** Track proposer/prover rewards, + generate tasks for total/per day ([#14690](https://github.com/taikoxyz/taiko-mono/issues/14690)) ([cc477b9](https://github.com/taikoxyz/taiko-mono/commit/cc477b97c00e8339a87c4d4502a0ee8ad811c10f))
+
+
+### Bug Fixes
+
+* **eventindexer:** update ABI so avgProofTime can be calculated ([#14785](https://github.com/taikoxyz/taiko-mono/issues/14785)) ([cc93140](https://github.com/taikoxyz/taiko-mono/commit/cc931402d368cfcfeff5b3f628368b38c53cdb33))
+
+## [0.11.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.10.1...eventindexer-v0.11.0) (2023-09-05)
+
+
+### Features
+
+* **eventindexer:** Eventindexer and relayer a5 updates ([#14597](https://github.com/taikoxyz/taiko-mono/issues/14597)) ([87c9d53](https://github.com/taikoxyz/taiko-mono/commit/87c9d53fa9c6911aada78a1746839d14e4401916))
+
+## [0.10.1](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.10.0...eventindexer-v0.10.1) (2023-08-22)
+
+
+### Bug Fixes
+
+* **relayer:** use erc20vault not token vault for required end var ([#14519](https://github.com/taikoxyz/taiko-mono/issues/14519)) ([a49c65c](https://github.com/taikoxyz/taiko-mono/commit/a49c65c6ba9535a761f4ef2abd7be2b2213a71c2))
+
+## [0.10.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.9.0...eventindexer-v0.10.0) (2023-08-15)
+
+
+### Features
+
+* **eventindexer:** Index nfts ([#14418](https://github.com/taikoxyz/taiko-mono/issues/14418)) ([364b09b](https://github.com/taikoxyz/taiko-mono/commit/364b09b52344dff8782be7333eac4fdb3e5d1597))
+* **protocol:** alpha-4 with staking-based tokenomics ([#14065](https://github.com/taikoxyz/taiko-mono/issues/14065)) ([1eeba9d](https://github.com/taikoxyz/taiko-mono/commit/1eeba9d97ed8e6e4a8d07a8b0af163a16fbc9ccf))
+
+## [0.9.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.8.0...eventindexer-v0.9.0) (2023-07-24)
+
+
+### Features
+
+* **eventindexer:** speed up sync ([#14258](https://github.com/taikoxyz/taiko-mono/issues/14258)) ([d337174](https://github.com/taikoxyz/taiko-mono/commit/d337174742bfd8d9c220fda0a0e1c9626fd571c2))
+
 ## [0.8.0](https://github.com/taikoxyz/taiko-mono/compare/eventindexer-v0.7.0...eventindexer-v0.8.0) (2023-07-10)
 
 

@@ -38,7 +38,7 @@ export const GRIMSVOTN_CONFIG = {
       name: "TaikoL1",
       address: {
         proxy: "0x4e7c942D51d977459108bA497FDc71ae0Fc54a00",
-        impl: "0x26Dc222448e28567af82CB6D6DEeeDe337102B2a",
+        impl: "0xe212f20F518eBA52260B61986c0A538aD6cC23bB",
       },
     },
     tokenVault: {
@@ -66,7 +66,7 @@ export const GRIMSVOTN_CONFIG = {
       name: "ProverPool",
       address: {
         proxy: "0xC9580414A4372BDdBd8e19e01854DC0B2b1390Cf",
-        impl: "0x6863FC6F074184648F654cE08D8f2Bc83BB96417",
+        impl: "0xD2951Ec51a2724aE37fA697E20643232fa810C0c",
       },
     },
     plonkVerifier: {
@@ -151,7 +151,7 @@ export const GRIMSVOTN_CONFIG = {
     deterministicDeploymentProxy: {
       name: "Deterministic Deployment Proxy",
       address: {
-        impl: "0x1C83d994f649E62cAA042097415d050732f53FF6",
+        impl: "0x4e59b44847b379578588920ca78fbf26c0b4956c",
       },
     },
     erc4337Entrypoint: {

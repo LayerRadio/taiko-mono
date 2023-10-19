@@ -11,8 +11,8 @@
   export let calculating = false;
   export let error = false;
 
-  async function compute(token: Maybe<Token>, userAddress?: Address, srcChainId?: number, destChainId?: number) {
-    if (!token || !userAddress || !srcChainId || !destChainId) {
+  async function compute(token: Maybe<Token>, userAddress?: Address, srcChain?: number, destChain?: number) {
+    if (!token || !userAddress || !srcChain || !destChain) {
       enoughEth = false;
       return;
     }
@@ -21,17 +21,18 @@
     error = false;
 
     try {
+      let destBalance;
       // Get the balance of the user on the destination chain
-      const destBalance = await getBalance({
+      destBalance = await getBalance({
         userAddress,
-        srcChainId: destChainId,
+        srcChainId: destChain,
       });
 
       // Calculate the recommended amount of ETH needed for processMessage call
       const recommendedAmount = await recommendProcessingFee({
         token,
-        destChainId,
-        srcChainId,
+        destChainId: destChain,
+        srcChainId: srcChain,
       });
 
       // Does the user have enough ETH to claim manually on the destination chain?

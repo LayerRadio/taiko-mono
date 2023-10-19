@@ -43,18 +43,26 @@ export function Hero() {
           <div className="relative z-10 w-3/4 pt-16 pb-20 text-left lg:py-48">
             <div className="pl-[max(env(safe-area-inset-left),1.5rem)]">
               <h1 className="font-grotesk text-4xl md:text-5xl tracking-tight text-neutral-900 dark:text-neutral-100">
-                A <span className="text-[#e81899]">Type 1</span> ZK-EVM
+                A <span className="text-[#e81899]">based</span> rollup
               </h1>
               <p className="font-groteskmedium mt-3 text-lg text-neutral-600 sm:text-xl md:mt-5 dark:text-neutral-100">
-                Decentralized, Ethereum-equivalent ZK-Rollup.
+                Decentralized, Ethereum-equivalent (Type 1) ZK-EVM.
               </p>
-              <div className="mt-10 flex md:justify-left">
-                <div className="inline-flex rounded-md shadow">
+              <div className="mt-10 flex flex-col sm:flex-row md:justify-left">
+                <div className="inline-flex mb-4 sm:mb-0 sm:mr-4">
                   <a
-                    href="/docs"
-                    className="inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-3 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white"
+                    href="/docs/guides/deploy-a-contract"
+                    className="inline-flex items-center rounded-md border border-transparent bg-[#e81899] px-5 py-2.5 text-base font-semibold text-white dark:text-neutral-100 hover:bg-[#d1168a] hover:no-underline hover:text-white w-auto"
                   >
-                    Get started →
+                    Deploy a contract
+                  </a>
+                </div>
+                <div className="inline-flex">
+                  <a
+                    href="/docs/guides/run-a-taiko-node"
+                    className="inline-flex items-center rounded-md border-2 border-[#e81899] bg-transparent px-5 py-2.5 text-base font-semibold text-[#e81899] hover:border-[#d1168a] hover:text-[#d1168a] hover:no-underline w-auto"
+                  >
+                    Run a Taiko node
                   </a>
                 </div>
               </div>

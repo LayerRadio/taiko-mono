@@ -1,11 +1,10 @@
 import { fetchBalance, type WalletClient } from '@wagmi/core';
 import { zeroAddress } from 'viem';
 
-import { PUBLIC_L1_CHAIN_ID } from '$env/static/public';
-
 import { getAddress } from './getAddress';
 import { getBalance } from './getBalance';
-import { ETHToken, testERC20Tokens } from './tokens';
+import { ETHToken } from './tokens';
+import { type Token, TokenType } from './types';
 
 vi.mock('$env/static/public');
 vi.mock('@wagmi/core');
@@ -14,7 +13,21 @@ vi.mock('$abi');
 // We don't want to test this function again, do we?
 vi.mock('./getAddress');
 
-const BLLToken = testERC20Tokens[0];
+const PUBLIC_L1_CHAIN_ID = 11155111;
+const PUBLIC_L2_CHAIN_ID = 1670005;
+
+const L1_TOKEN_ADDRESS = '0x123456';
+
+const BLLToken: Token = {
+  name: 'MockToken',
+  addresses: {
+    [PUBLIC_L1_CHAIN_ID]: L1_TOKEN_ADDRESS,
+    [PUBLIC_L2_CHAIN_ID]: zeroAddress,
+  },
+  symbol: 'MOCK',
+  decimals: 18,
+  type: TokenType.ERC20,
+};
 
 const mockWalletClient = {
   account: { address: '0xasdf' },
@@ -51,7 +64,10 @@ describe('getBalance', () => {
 
     expect(balance).toEqual(mockBalanceForETH);
     expect(getAddress).not.toHaveBeenCalled();
-    expect(fetchBalance).toHaveBeenCalledWith({ address: mockWalletClient.account.address });
+    expect(fetchBalance).toHaveBeenCalledWith({
+      address: mockWalletClient.account.address,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
+    });
   });
 
   it('should return the balance of ERC20 token', async () => {
@@ -72,6 +88,7 @@ describe('getBalance', () => {
     });
     expect(fetchBalance).toHaveBeenCalledWith({
       address: mockWalletClient.account.address,
+      chainId: Number(PUBLIC_L1_CHAIN_ID),
       token: BLLToken.addresses[PUBLIC_L1_CHAIN_ID],
     });
   });

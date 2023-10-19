@@ -1,11 +1,14 @@
 <script lang="ts">
   import { classNames } from '$libs/util/classNames';
 
-  export let loading = false;
   export let error = false;
 
   let input: HTMLInputElement;
-  let classes = classNames('w-full input-box placeholder:text-tertiary-content', $$props.class);
+
+  let classes = classNames(
+    'w-full input-box placeholder:text-tertiary-content bg-neutral-background shadow-none font-bold text-2xl',
+    $$props.class,
+  );
 
   // Public API
   export const getValue = () => input.value;
@@ -14,4 +17,4 @@
   export const focus = () => input.focus();
 </script>
 
-<input class={classes} class:error disabled={loading} {...$$restProps} bind:this={input} on:input on:blur />
+<input bind:this={input} {...$$restProps} class={classes} class:error on:input on:blur />

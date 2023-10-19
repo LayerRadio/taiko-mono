@@ -9,7 +9,8 @@
   export let position: Position = 'top';
 
   let tooltipId = `tooltip-${uid()}`;
-  let tooltipOpen = false;
+  let tooltipClass = `block dialog-tooltip`;
+  export let tooltipOpen = false;
   let classes = classNames('flex', $$props.class || 'relative');
 
   const GAP = 10; // distance between trigger element and tooltip
@@ -26,6 +27,9 @@
   }
 
   onMount(() => {
+    if (position === 'top') {
+      tooltipClass = `block dialog-tooltip dialog-tooltip-top`;
+    }
     positionElementByTarget(dialogElem, triggerElem, position, GAP);
     document.addEventListener('click', closeTooltip);
   });
@@ -47,7 +51,7 @@
     <Icon type="question-circle" />
   </button>
 
-  <dialog id={tooltipId} class="block rounded-[10px]" class:block-hidden={!tooltipOpen} bind:this={dialogElem}>
+  <dialog id={tooltipId} class={tooltipClass} class:block-hidden={!tooltipOpen} bind:this={dialogElem}>
     <slot />
   </dialog>
 </div>

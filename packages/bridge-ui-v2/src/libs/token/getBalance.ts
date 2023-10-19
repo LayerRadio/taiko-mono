@@ -4,8 +4,7 @@ import { type Address, zeroAddress } from 'viem';
 import { getLogger } from '$libs/util/logger';
 
 import { getAddress } from './getAddress';
-import { isETH } from './tokens';
-import type { Token } from './types';
+import { type Token, TokenType } from './types';
 
 type GetBalanceArgs = {
   userAddress: Address;
@@ -19,9 +18,9 @@ const log = getLogger('token:getBalance');
 export async function getBalance({ userAddress, token, srcChainId, destChainId }: GetBalanceArgs) {
   let tokenBalance: FetchBalanceResult;
 
-  if (!token || isETH(token)) {
+  if (!token || token.type === TokenType.ETH) {
     // If no token is passed in, we assume is ETH
-    tokenBalance = await fetchBalance({ address: userAddress });
+    tokenBalance = await fetchBalance({ address: userAddress, chainId: srcChainId });
   } else {
     // We need at least the source chain to find the address
     if (!srcChainId) return;
@@ -32,11 +31,10 @@ export async function getBalance({ userAddress, token, srcChainId, destChainId }
 
     if (!tokenAddress || tokenAddress === zeroAddress) return;
 
-    // Wagmi is such an amazing library. We had to do this
-    // more manually before.
     tokenBalance = await fetchBalance({
       address: userAddress,
       token: tokenAddress,
+      chainId: srcChainId,
     });
   }
 

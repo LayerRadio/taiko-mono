@@ -6,16 +6,14 @@
   import { t } from 'svelte-i18n';
 
   import { page } from '$app/stores';
+  import { chainConfig } from '$chainConfig';
   import { Icon } from '$components/Icon';
   import { LinkButton } from '$components/LinkButton';
   import { LogoWithText } from '$components/Logo';
-  import { PUBLIC_GUIDE_URL, PUBLIC_L2_EXPLORER_URL } from '$env/static/public';
+  import { PUBLIC_DEFAULT_EXPLORER, PUBLIC_GUIDE_URL } from '$env/static/public';
+  import { network } from '$stores/network';
 
   let drawerToggleElem: HTMLInputElement;
-
-  $: isBridgePage = $page.route.id === '/';
-  $: isFaucetPage = $page.route.id === '/faucet';
-  $: isActivitiesPage = $page.route.id === '/activities';
 
   function closeDrawer() {
     drawerToggleElem.checked = false;
@@ -30,6 +28,10 @@
   function getIconFillClass(active: boolean) {
     return active ? 'fill-white' : 'fill-primary-icon';
   }
+
+  $: isBridgePage = $page.route.id === '/' || $page.route.id === '/nft';
+  $: isFaucetPage = $page.route.id === '/faucet';
+  $: isTransactionPage = $page.route.id === '/transactions';
 </script>
 
 <div class="drawer md:drawer-open">
@@ -62,44 +64,45 @@
         md:px-4
         md:py-8
         md:w-[226px]
-        md:border-r
-        md:border-r-divider-border">
+      ">
         <a href="/" class="hidden md:inline-block">
-          <LogoWithText />
+          <LogoWithText textFillClass="fill-primary-content" />
         </a>
 
-        <ul class="menu p-0 md:pt-10 space-y-2" on:click={closeDrawer} on:keydown={onMenuKeydown}>
-          <li>
-            <LinkButton active={isBridgePage}>
-              <Icon type="bridge" fillClass={getIconFillClass(isBridgePage)} />
-              <span>{$t('nav.bridge')}</span>
-            </LinkButton>
-          </li>
-          <li>
-            <LinkButton href="/faucet" active={isFaucetPage}>
-              <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
-              <span>{$t('nav.faucet')}</span>
-            </LinkButton>
-          </li>
-          <li>
-            <LinkButton href="/activities" active={isActivitiesPage}>
-              <Icon type="activities" fillClass={getIconFillClass(isActivitiesPage)} />
-              <span>{$t('nav.activities')}</span>
-            </LinkButton>
-          </li>
-          <li>
-            <LinkButton href={PUBLIC_L2_EXPLORER_URL} external>
-              <Icon type="explorer" />
-              <span>{$t('nav.explorer')}</span>
-            </LinkButton>
-          </li>
-          <li>
-            <LinkButton href={PUBLIC_GUIDE_URL} external>
-              <Icon type="guide" />
-              <span>{$t('nav.guide')}</span>
-            </LinkButton>
-          </li>
-        </ul>
+        <div role="button" tabindex="0" on:click={closeDrawer} on:keydown={onMenuKeydown}>
+          <ul class="menu p-0 md:pt-10 space-y-2">
+            <li>
+              <LinkButton active={isBridgePage}>
+                <Icon type="bridge" fillClass={getIconFillClass(isBridgePage)} />
+                <span>{$t('nav.bridge')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href="/faucet" active={isFaucetPage}>
+                <Icon type="faucet" fillClass={getIconFillClass(isFaucetPage)} />
+                <span>{$t('nav.faucet')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href="/transactions" active={isTransactionPage}>
+                <Icon type="transactions" fillClass={getIconFillClass(isTransactionPage)} />
+                <span>{$t('nav.transactions')}</span>
+              </LinkButton>
+            </li>
+            <li class="border-t border-t-divider-border pt-2">
+              <LinkButton href={$network ? chainConfig[$network.id].urls.explorer : PUBLIC_DEFAULT_EXPLORER} external>
+                <Icon type="explorer" />
+                <span>{$t('nav.explorer')}</span>
+              </LinkButton>
+            </li>
+            <li>
+              <LinkButton href={PUBLIC_GUIDE_URL} external>
+                <Icon type="guide" />
+                <span>{$t('nav.guide')}</span>
+              </LinkButton>
+            </li>
+          </ul>
+        </div>
       </aside>
     </div>
   </div>

@@ -21,8 +21,12 @@
     @apply sticky top-0;
   }
 
-  .glassy-primary-background {
-    @apply bg-grey-900/60 backdrop-filter backdrop-blur-sm;
+  .glassy-background {
+    @apply backdrop-filter backdrop-blur-sm;
+  }
+
+  .glass-background-gradient {
+    background: linear-gradient(226deg, rgba(93, 99, 111, 0.1) 1.26%, rgba(25, 30, 40, 0.2) 100%);
   }
 
   /* Flex shortcuts */
@@ -48,5 +52,13 @@
 
   .f-col {
     @apply flex flex-col;
+  }
+
+  .box-shadow-small {
+    box-shadow: 0px 10px 48px 0px rgba(5, 9, 18, 0.3);
+  }
+
+  .box-shadow-large {
+    box-shadow: 0px 20px 66px 0px rgba(5, 9, 18, 0.48);
   }
 }

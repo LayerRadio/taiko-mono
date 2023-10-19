@@ -5,10 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"time"
+
+	"log/slog"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	log "github.com/sirupsen/logrus"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer"
 	"github.com/taikoxyz/taiko-mono/packages/eventindexer/contracts/swap"
 )
@@ -17,23 +19,23 @@ var (
 	minTradeAmount = big.NewInt(10000000000000000)
 )
 
-func (svc *Service) saveSwapEvents(
+func (indxr *Indexer) saveSwapEvents(
 	ctx context.Context,
 	chainID *big.Int,
 	events *swap.SwapSwapIterator,
 ) error {
 	if !events.Next() || events.Event == nil {
-		log.Infof("no Swap events")
+		slog.Info("no Swap events")
 		return nil
 	}
 
 	for {
 		event := events.Event
 
-		if err := svc.saveSwapEvent(ctx, chainID, event); err != nil {
+		if err := indxr.saveSwapEvent(ctx, chainID, event); err != nil {
 			eventindexer.SwapEventsProcessedError.Inc()
 
-			return errors.Wrap(err, "svc.saveSwapEvent")
+			return errors.Wrap(err, "indxr.saveSwapEvent")
 		}
 
 		if !events.Next() {
@@ -42,21 +44,21 @@ func (svc *Service) saveSwapEvents(
 	}
 }
 
-func (svc *Service) saveSwapEvent(
+func (indxr *Indexer) saveSwapEvent(
 	ctx context.Context,
 	chainID *big.Int,
 	event *swap.SwapSwap,
 ) error {
-	log.Infof("swap event for sender 0x%v, amount: %v",
-		common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:]),
-		event.Amount0In.String(),
+	slog.Info("swap event",
+		"sender", fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
+		"amount", event.Amount0In.String(),
 	)
 
 	// we only want events with > 0.1 ETH swap
 	if event.Amount0In.Cmp(minTradeAmount) <= 0 && event.Amount1Out.Cmp(minTradeAmount) <= 0 {
-		log.Infof("skipping skip event, min trade too low. amountIn: %v, amountOut: %v",
-			event.Amount0In.String(),
-			event.Amount1Out.String(),
+		slog.Info("skipping skip event, min trade too low",
+			"amount0", event.Amount0In.String(),
+			"amount1", event.Amount1Out.String(),
 		)
 
 		return nil
@@ -67,15 +69,21 @@ func (svc *Service) saveSwapEvent(
 		return errors.Wrap(err, "json.Marshal(event)")
 	}
 
-	_, err = svc.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
-		Name:    eventindexer.EventNameSwap,
-		Data:    string(marshaled),
-		ChainID: chainID,
-		Event:   eventindexer.EventNameSwap,
-		Address: fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
+	block, err := indxr.ethClient.BlockByNumber(ctx, new(big.Int).SetUint64(event.Raw.BlockNumber))
+	if err != nil {
+		return errors.Wrap(err, "indxr.ethClient.BlockByNumber")
+	}
+
+	_, err = indxr.eventRepo.Save(ctx, eventindexer.SaveEventOpts{
+		Name:         eventindexer.EventNameSwap,
+		Data:         string(marshaled),
+		ChainID:      chainID,
+		Event:        eventindexer.EventNameSwap,
+		Address:      fmt.Sprintf("0x%v", common.Bytes2Hex(event.Raw.Topics[2].Bytes()[12:])),
+		TransactedAt: time.Unix(int64(block.Time()), 0),
 	})
 	if err != nil {
-		return errors.Wrap(err, "svc.eventRepo.Save")
+		return errors.Wrap(err, "indxr.eventRepo.Save")
 	}
 
 	eventindexer.SwapEventsProcessed.Inc()

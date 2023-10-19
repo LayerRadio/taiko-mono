@@ -9,6 +9,7 @@ paths=("TaikoL1.sol" "Bridge.sol")
 
 names=("TaikoL1" "Bridge")
 
+
 for (( i = 0; i < ${#paths[@]}; ++i ));
 do
     jq .abi ../protocol/out/${paths[i]}/${names[i]}.json > ${names[i]}.json

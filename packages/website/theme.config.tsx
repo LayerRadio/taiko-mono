@@ -3,14 +3,14 @@ import { ThemedImage } from "./components/ThemedImage";
 import { useConfig } from "nextra-theme-docs";
 import { useRouter } from "next/router";
 import { ThemeToggle } from "./components/ThemeToggle";
-import { ELDFELL_CONFIG } from "./domain/chain";
+import { TAIKO_CONFIG } from "./domain/chain";
 
 export default {
   banner: {
     key: "banner",
     text: (
       <a href="/docs/guides" target="_blank">
-        📌 {ELDFELL_CONFIG.names.shortishName} is here! Get started →
+        📌 {TAIKO_CONFIG.names.shortName} is here! Get started →
       </a>
     ),
   },
@@ -21,22 +21,21 @@ export default {
   docsRepositoryBase:
     "https://github.com/taikoxyz/taiko-mono/blob/main/packages/website",
   editLink: {
-    text: "Edit this page ↗",
+    text: "Edit this page 📝",
   },
-  // TODO: we should add the feedback link, check if nextra fixed it: https://github.com/shuding/nextra/issues/2067
   feedback: {
     content: (
       <button
         onClick={() => {
           const win = window.open(
-            "https://forms.gle/9JWjWtjbWytZZcNRA",
+            "https://forms.gle/TAnV1xLmFwH13ryj7",
             "_blank",
             "noopener,noreferrer"
           );
           if (win) win.opener = null;
         }}
       >
-        Leave feedback ↗
+        Leave feedback 💬
       </button>
     ),
   },

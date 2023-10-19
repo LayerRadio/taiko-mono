@@ -1,21 +1,22 @@
 <script lang="ts">
   import { type Chain, switchNetwork } from '@wagmi/core';
+  import { onMount } from 'svelte';
   import { t } from 'svelte-i18n';
-  import { UserRejectedRequestError } from 'viem';
+  import { ContractFunctionExecutionError, UserRejectedRequestError } from 'viem';
 
+  import { chainConfig } from '$chainConfig';
   import { Alert } from '$components/Alert';
   import { Button } from '$components/Button';
   import { Card } from '$components/Card';
   import { ChainSelector } from '$components/ChainSelector';
   import { Icon } from '$components/Icon';
   import { successToast, warningToast } from '$components/NotificationToast';
+  import { errorToast, infoToast } from '$components/NotificationToast/NotificationToast.svelte';
   import { TokenDropdown } from '$components/TokenDropdown';
-  import { PUBLIC_L1_CHAIN_ID, PUBLIC_L1_CHAIN_NAME, PUBLIC_L1_EXPLORER_URL } from '$env/static/public';
-  import { InsufficientBalanceError, TokenMintedError } from '$libs/error';
-  import { testERC20Tokens, type Token } from '$libs/token';
-  import { checkMintable, mint } from '$libs/token';
-  import { account } from '$stores/account';
-  import { network } from '$stores/network';
+  import { chains } from '$libs/chain';
+  import { InsufficientBalanceError, MintError, TokenMintedError } from '$libs/error';
+  import { checkMintable, mint, testERC20Tokens, type Token } from '$libs/token';
+  import { account, network, pendingTransactions } from '$stores';
 
   let minting = false;
   let checkingMintable = false;
@@ -23,7 +24,9 @@
 
   let selectedToken: Token;
   let mintButtonEnabled = false;
-  let reasonNotMintable = '';
+  let alertMessage = '';
+  let mintableTokens: Token[] = [];
+  const onlyMintable: boolean = true;
 
   async function switchNetworkToL1() {
     if (switchingNetwork) return;
@@ -31,12 +34,12 @@
     switchingNetwork = true;
 
     try {
-      await switchNetwork({ chainId: Number(PUBLIC_L1_CHAIN_ID) });
+      await switchNetwork({ chainId: Number(chains[0]) });
     } catch (err) {
       console.error(err);
 
       if (err instanceof UserRejectedRequestError) {
-        warningToast($t('messages.network.rejected'));
+        warningToast({title: $t('messages.network.rejected')});
       }
     } finally {
       switchingNetwork = false;
@@ -55,27 +58,42 @@
 
     try {
       const txHash = await mint(selectedToken, $network.id);
+      const explorer = chainConfig[$network.id].urls.explorer;
 
-      successToast(
-        $t('faucet.minting_tx', {
+      infoToast({
+        title: $t('faucet.mint.tx.title'),
+        message: $t('faucet.mint.tx.message', {
           values: {
             token: selectedToken.symbol,
-            url: `${PUBLIC_L1_EXPLORER_URL}/tx/${txHash}`,
+            url: `${explorer}/tx/${txHash}`,
           },
         }),
-        true,
-      );
+      });
 
-      // TODO: pending transaction logic
+      await pendingTransactions.add(txHash, $network.id);
+
+      successToast({
+        title: $t('faucet.mint.success.title'),
+        message: $t('faucet.mint.success.message'),
+      });
     } catch (err) {
       console.error(err);
 
-      const { cause } = err as Error;
-      if (cause instanceof UserRejectedRequestError) {
-        warningToast($t('messages.mint.rejected'));
+      switch (true) {
+        case err instanceof UserRejectedRequestError:
+          warningToast({title: $t('faucet.mint.rejected')});
+          break;
+        case err instanceof MintError:
+          // TODO: see contract for all possible errors
+          errorToast({title: $t('faucet.mint.error')});
+          break;
+        default:
+          errorToast({title: $t('faucet.mint.unknown_error')});
+          break;
       }
     } finally {
       minting = false;
+      updateMintButtonState(connected, selectedToken, $network);
     }
   }
 
@@ -84,18 +102,25 @@
   }
 
   function isWrongChain(network: Maybe<Chain>) {
-    return Boolean(network?.id.toString() !== PUBLIC_L1_CHAIN_ID);
+    if (!selectedToken?.addresses) {
+      // nothing selected, can't determine if wrong chain
+      return false;
+    }
+    if (network?.id) {
+      return !selectedToken.addresses[network.id];
+    }
+    return true;
   }
 
   // This function will check whether or not the button to mint should be
   // enabled. If it shouldn't it'll also set the reason why so we can inform
   // the user why they can't mint
-  async function updateMintButtonState(token?: Token, network?: Chain) {
+  async function updateMintButtonState(connected: boolean, token?: Token, network?: Chain) {
     if (!token || !network) return false;
 
     checkingMintable = true;
     mintButtonEnabled = false;
-    reasonNotMintable = '';
+    let reasonNotMintable = '';
 
     try {
       await checkMintable(token, network.id);
@@ -110,6 +135,9 @@
         case err instanceof TokenMintedError:
           reasonNotMintable = $t('faucet.warning.token_minted');
           break;
+        case err instanceof ContractFunctionExecutionError:
+          reasonNotMintable = $t('faucet.warning.not_mintable');
+          break;
         default:
           reasonNotMintable = $t('faucet.warning.unknown');
           break;
@@ -117,26 +145,34 @@
     } finally {
       checkingMintable = false;
     }
+
+    alertMessage = getAlertMessage(connected, wrongChain, reasonNotMintable);
   }
 
   function getAlertMessage(connected: boolean, wrongChain: boolean, reasonNotMintable: string) {
     if (!connected) return $t('messages.account.required');
-    if (wrongChain) return $t('faucet.wrong_chain.message', { values: { network: PUBLIC_L1_CHAIN_NAME } });
+    //does this really need to be dynamic? Our mint tokens will most likely stay on Sepolia
+    if (wrongChain) return $t('faucet.wrong_chain.message', { values: { network: 'Sepolia' } });
     if (reasonNotMintable) return reasonNotMintable;
+    return '';
   }
+
+  onMount(() => {
+    // Only show tokens in the dropdown that are mintable
+    mintableTokens = testERC20Tokens.filter((token) => token.mintable);
+  });
 
   $: connected = isUserConnected($account);
   $: wrongChain = isWrongChain($network);
-  $: alertMessage = getAlertMessage(connected, wrongChain, reasonNotMintable);
 
-  $: updateMintButtonState(selectedToken, $network);
+  $: updateMintButtonState(connected, selectedToken, $network);
 </script>
 
-<Card class="md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.subtitle')}>
+<Card class="w-full md:w-[524px]" title={$t('faucet.title')} text={$t('faucet.description')}>
   <div class="space-y-[35px]">
     <div class="space-y-2">
-      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet />
-      <TokenDropdown tokens={testERC20Tokens} bind:value={selectedToken} />
+      <ChainSelector label={$t('chain_selector.currently_on')} value={$network} switchWallet small />
+      <TokenDropdown tokens={mintableTokens} {onlyMintable} bind:value={selectedToken} />
     </div>
 
     {#if alertMessage}
@@ -155,9 +191,9 @@
         {#if switchingNetwork}
           <span>{$t('messages.network.switching')}</span>
         {:else}
-          <Icon type="up-down" fillClass="fill-white" class="rotate-90" size={24} />
+          <Icon type="up-down" fillClass="fill-white" class="rotate-90" height={24} width={24} />
           <span class="body-bold">
-            {$t('faucet.wrong_chain.button', { values: { network: PUBLIC_L1_CHAIN_NAME } })}
+            {alertMessage}
           </span>
         {/if}
       </Button>
